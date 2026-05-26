@@ -1,6 +1,7 @@
 export type { Post, PostListItem, PostQueryParams, PostListResult } from './post'
 export type { Category } from './category'
 export type { Tag } from './tag'
+export type { HomeDashboardData, HomeHeroContent, HomeStat } from './home'
 
 import type { PostListItem } from './post'
 
