@@ -15,14 +15,10 @@
         <div v-if="toc.length > 0" class="post-toc-mobile">
           <PostToc :items="toc" />
         </div>
-        <div class="post-body" v-html="renderedContent" />
+        <MarkdownRenderer class="post-body" :content="postStore.currentPost.content" />
         <footer class="post-footer">
           <div class="post-tags">
-            <PostTag
-              v-for="tag in postStore.currentPost.tags"
-              :key="tag"
-              :tag="tag"
-            />
+            <PostTag v-for="tag in postStore.currentPost.tags" :key="tag" :tag="tag" />
           </div>
         </footer>
       </article>
@@ -39,35 +35,35 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
+import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import PostMeta from '@/components/blog/PostMeta.vue'
 import PostTag from '@/components/blog/PostTag.vue'
 import PostToc from '@/components/blog/PostToc.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import { usePostStore } from '@/stores/post'
-import { renderMarkdown } from '@/utils/markdown'
 import { extractToc } from '@/utils/markdown'
 
 const route = useRoute()
 const postStore = usePostStore()
-
-const renderedContent = computed(() => {
-  if (!postStore.currentPost) return ''
-  return renderMarkdown(postStore.currentPost.content)
-})
 
 const toc = computed(() => {
   if (!postStore.currentPost) return []
   return extractToc(postStore.currentPost.content)
 })
 
-onMounted(() => {
-  const slug = route.params.slug as string
+function loadPost() {
+  const slugParam = route.params.slug
+  const slug = Array.isArray(slugParam) ? slugParam.join('/') : slugParam
+
+  if (!slug) return
   postStore.fetchPostBySlug(slug)
-})
+}
+
+watch(() => route.params.slug, loadPost, { immediate: true })
 </script>
 
 <style scoped>
