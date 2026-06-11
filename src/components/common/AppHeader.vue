@@ -43,11 +43,9 @@ const appStore = useAppStore()
 const navLinks = [
   { name: '首页', path: '/' },
   { name: '文章', path: '/posts' },
-  { name: '每期一题', path: '/challenges' },
   { name: '导航', path: '/favorites' },
-  { name: '分类', path: '/categories' },
-  { name: '标签', path: '/tags' },
   { name: '归档', path: '/archives' },
+  { name: '训练计划', path: '/challenges' },
   { name: '关于', path: '/about' },
 ]
 </script>
