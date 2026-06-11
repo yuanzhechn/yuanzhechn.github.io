@@ -1,5 +1,5 @@
 <template>
-  <BlogLayout>
+  <BlogLayout immersive :style="pageThemeStyle">
     <template #content>
       <div v-if="postStore.loading" class="center">
         <LoadingSpinner />
@@ -55,11 +55,13 @@ import PostToc from '@/components/blog/PostToc.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import { usePostStore } from '@/stores/post'
+import { useMarkdownTheme } from '@/composables/useMarkdownTheme'
 import { extractToc } from '@/utils/markdown'
 
 const route = useRoute()
 const postStore = usePostStore()
 const markdownRenderer = ref<InstanceType<typeof MarkdownRenderer>>()
+const { pageThemeStyle } = useMarkdownTheme()
 
 const toc = computed(() => {
   if (!postStore.currentPost) return []
@@ -140,12 +142,13 @@ watch(() => route.params.slug, loadPost, { immediate: true })
 }
 
 .widget {
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--reader-surface) 92%, transparent);
   border-radius: var(--radius-md);
   padding: var(--spacing-md);
   border: 1px solid var(--color-border);
   position: sticky;
   top: calc(var(--header-height) + var(--spacing-lg));
+  backdrop-filter: blur(14px);
 }
 
 .widget-title {

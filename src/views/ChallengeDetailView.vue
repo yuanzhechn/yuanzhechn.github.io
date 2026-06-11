@@ -1,5 +1,5 @@
 <template>
-  <BlogLayout>
+  <BlogLayout immersive :style="pageThemeStyle">
     <template #content>
       <LoadingSpinner v-if="challengeStore.loading" />
       <ErrorState v-else-if="challengeStore.error" :message="challengeStore.error" />
@@ -46,11 +46,13 @@ import MarkdownThemePicker from '@/components/common/MarkdownThemePicker.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import { useChallengeStore } from '@/stores/challenge'
+import { useMarkdownTheme } from '@/composables/useMarkdownTheme'
 import { formatDate } from '@/utils/date'
 
 const route = useRoute()
 const challengeStore = useChallengeStore()
 const markdownRenderer = ref<InstanceType<typeof MarkdownRenderer>>()
+const { pageThemeStyle } = useMarkdownTheme()
 
 const difficultyLabel = computed(() => {
   const difficulty = challengeStore.currentChallenge?.difficulty
@@ -104,7 +106,8 @@ watch(() => route.params.slug, loadChallenge, { immediate: true })
   padding: var(--spacing-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--reader-surface) 92%, transparent);
+  backdrop-filter: blur(14px);
 }
 
 .challenge-sidebar h3 {

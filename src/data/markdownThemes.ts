@@ -31,6 +31,10 @@ export interface MarkdownTheme {
   description: string
   mode: 'light' | 'dark'
   colors: [string, string, string]
+  pageBackground: string
+  pageSurface: string
+  pageText: string
+  pageMuted: string
   css: string
 }
 
@@ -55,6 +59,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '清透青绿',
     mode: 'light',
     colors: ['#3db8bf', '#80f7c4', '#e8fffb'],
+    pageBackground: '#ecfbf8',
+    pageSurface: '#f8fffd',
+    pageText: '#203538',
+    pageMuted: '#5d7477',
     css: themeSources.mint,
   },
   {
@@ -63,6 +71,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '明亮蓝色',
     mode: 'light',
     colors: ['#3b82f6', '#7dd3fc', '#eff8ff'],
+    pageBackground: '#edf7ff',
+    pageSurface: '#f8fcff',
+    pageText: '#20364d',
+    pageMuted: '#60768c',
     css: themeSources.sky,
   },
   {
@@ -71,6 +83,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '柔和粉色',
     mode: 'light',
     colors: ['#ec7fa9', '#f9b4cb', '#fff2f7'],
+    pageBackground: '#fff1f6',
+    pageSurface: '#fff9fb',
+    pageText: '#4a2936',
+    pageMuted: '#80616d',
     css: themeSources.sakura,
   },
   {
@@ -79,6 +95,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '温暖琥珀',
     mode: 'light',
     colors: ['#c77d30', '#efb366', '#fff7e8'],
+    pageBackground: '#fff5e4',
+    pageSurface: '#fffaf2',
+    pageText: '#463524',
+    pageMuted: '#806b55',
     css: themeSources.caramel,
   },
   {
@@ -87,6 +107,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '清醒红调',
     mode: 'light',
     colors: ['#d94c64', '#f28a9c', '#fff1f3'],
+    pageBackground: '#fff0f2',
+    pageSurface: '#fff8f9',
+    pageText: '#492a30',
+    pageMuted: '#806067',
     css: themeSources.cherry,
   },
   {
@@ -95,6 +119,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '自然深绿',
     mode: 'light',
     colors: ['#3f7d58', '#79b791', '#eff8f1'],
+    pageBackground: '#edf7ef',
+    pageSurface: '#f8fcf9',
+    pageText: '#26392c',
+    pageMuted: '#627568',
     css: themeSources.forest,
   },
   {
@@ -103,6 +131,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '克制紫灰',
     mode: 'light',
     colors: ['#8b6f9e', '#baa2c8', '#f8f2fb'],
+    pageBackground: '#f7f0fa',
+    pageSurface: '#fcf9fd',
+    pageText: '#3d3144',
+    pageMuted: '#74667b',
     css: themeSources.mauve,
   },
   {
@@ -111,6 +143,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '沉静蓝灰',
     mode: 'light',
     colors: ['#315a7d', '#72a0c1', '#eff6fb'],
+    pageBackground: '#edf5fa',
+    pageSurface: '#f8fbfd',
+    pageText: '#263947',
+    pageMuted: '#627582',
     css: themeSources.prussian,
   },
   {
@@ -119,6 +155,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '冷静暗蓝',
     mode: 'dark',
     colors: ['#38bdf8', '#1e3a5f', '#08111f'],
+    pageBackground: '#0f111a',
+    pageSurface: '#171a26',
+    pageText: '#d6deeb',
+    pageMuted: '#7e8c9f',
     css: themeSources.abyss,
   },
   {
@@ -127,6 +167,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '高能荧光',
     mode: 'dark',
     colors: ['#c7f464', '#5c7c24', '#11180b'],
+    pageBackground: '#1b1d1b',
+    pageSurface: '#242824',
+    pageText: '#e6e6e6',
+    pageMuted: '#99a699',
     css: themeSources.radiation,
   },
   {
@@ -135,6 +179,10 @@ export const markdownThemes: MarkdownTheme[] = [
     description: '暗红黑色',
     mode: 'dark',
     colors: ['#ef6f83', '#7f1d32', '#16090d'],
+    pageBackground: '#282a36',
+    pageSurface: '#303241',
+    pageText: '#f8f8f2',
+    pageMuted: '#b8b8b2',
     css: themeSources.vampire,
   },
 ]
@@ -144,17 +192,6 @@ const compatibilityCss = `
   display: block;
   color-scheme: light dark;
   font-family: Optima, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --element-color: #3db8bf;
-  --element-color-deep: #257f91;
-  --element-color-shallow: #75cddd;
-  --element-color-so-shallow: rgba(61, 184, 191, 0.42);
-  --element-color-soo-shallow: rgba(61, 184, 191, 0.12);
-  --head-title-color: var(--element-color);
-  --head-title-h2-color: #fff;
-  --head-title-h2-background: linear-gradient(90deg, var(--element-color-shallow), var(--element-color));
-  --element-color-linecode: var(--element-color-deep);
-  --element-color-linecode-background: var(--element-color-soo-shallow);
-  --glass-bg-color: var(--element-color-soo-shallow);
   --bg-style: none;
 }
 
@@ -168,7 +205,12 @@ const compatibilityCss = `
   min-height: 240px;
   margin: 0;
   padding: 1.4rem 1.5rem 1.8rem;
-  border-radius: 8px;
+  border-radius: 0;
+  background: transparent;
+}
+
+#write::before {
+  display: none;
 }
 
 #write > *:first-child {
@@ -193,7 +235,25 @@ const compatibilityCss = `
 }
 
 #write .code-block {
+  width: 100%;
+  margin: 1.25rem 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+#write .code-block > .md-fencescode {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 1rem 1.2rem 1.15rem;
   overflow-x: auto;
+  border-radius: 0 0 8px 8px;
+  font-family: CascadiaCode, "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+  line-height: 1.7;
+  tab-size: 2;
+  white-space: pre;
 }
 
 #write .escaped-html {
@@ -238,12 +298,12 @@ export function getMarkdownThemeCss(id: MarkdownThemeId): string {
       ? `
 :host {
   color-scheme: dark;
-  background: var(--bg-color, #111827);
+  background: ${theme.pageBackground};
 }
 
 #write {
   color: var(--text-color, #e5e7eb);
-  background-color: var(--bg-color, #111827);
+  background-color: transparent;
 }
 
 #write p,
@@ -252,15 +312,36 @@ export function getMarkdownThemeCss(id: MarkdownThemeId): string {
 #write figcaption {
   color: var(--text-color, #e5e7eb);
 }
+
+#write .code-block {
+  border: 1px solid color-mix(in srgb, var(--primary-color, #8b9cff) 28%, transparent);
+  background-color: var(--code-block-bg, #202330);
+}
+
+#write .code-block > .md-fencescode {
+  color: var(--text-color, #e5e7eb);
+  background-color: var(--code-block-bg, #202330);
+}
 `
       : `
 :host {
   color-scheme: light;
-  background: #fff;
+  background: ${theme.pageBackground};
 }
 
 #write {
-  background-color: #fff;
+  color: ${theme.pageText};
+  background-color: transparent;
+}
+
+#write .code-block {
+  border: 1px solid color-mix(in srgb, var(--element-color) 18%, #d7dce1);
+  background-color: #f8f8f8;
+}
+
+#write .code-block > .md-fencescode {
+  color: #344054;
+  background-color: color-mix(in srgb, var(--element-color) 5%, #fbfcfd);
 }
 `
   const css = `${prepareCss(baseCss)}\n${prepareCss(theme.css)}\n${compatibilityCss}\n${canvasCss}`
