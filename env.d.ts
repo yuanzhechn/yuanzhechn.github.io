@@ -3,6 +3,7 @@
 declare module 'virtual:blog-posts' {
   const posts: Array<{
     filepath: string
+    metadataPath: string
     data: Record<string, unknown>
     content: string
   }>
@@ -13,6 +14,7 @@ declare module 'virtual:blog-posts' {
 declare module 'virtual:challenges' {
   const challenges: Array<{
     filepath: string
+    metadataPath: string
     data: Record<string, unknown>
     content: string
   }>

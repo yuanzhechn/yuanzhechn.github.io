@@ -112,17 +112,6 @@ function inferTitle(filepath: string, content: string): string {
   return fileName.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
-function inferCategory(filepath: string): string {
-  const parts = pathWithoutExt(filepath).split('/')
-  const first = parts[0]
-
-  if (first === 'posts') {
-    return slugifyHeading(parts.length > 2 ? (parts[1] ?? '') : '') || 'notes'
-  }
-
-  return slugifyHeading(parts.length > 1 ? (first ?? '') : '') || 'notes'
-}
-
 function createExcerpt(content: string, fallback: string): string {
   const plain = content
     .replace(/```[\s\S]*?```/g, ' ')
@@ -159,7 +148,7 @@ function readFiles(): { posts: Post[]; categories: Category[]; tags: Tag[] } {
       excerpt: normalizeText(fm.excerpt, createExcerpt(bodyContent, title)),
       content: bodyContent,
       coverImage: normalizeText(fm.coverImage),
-      category: normalizeText(fm.category, inferCategory(filepath)),
+      category: normalizeText(fm.category),
       tags,
       author: normalizeText(fm.author, '博主'),
       createdAt,

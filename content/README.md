@@ -1,32 +1,67 @@
 # 内容目录
 
-内容按集合和主题分目录管理：
+每个 Markdown 文件必须配套一个位于同一目录、文件名相同的 JSON 元数据文件：
 
 ```text
 content/
-├─ content-index.json          # 集中索引、分类和标签
-├─ posts/                      # 博客文章
-│  ├─ frontend/
-│  ├─ backend/
-│  ├─ tools/
-│  ├─ life/
-│  └─ guides/
-└─ challenges/                 # 每期一题
-   └─ 2026/
+├─ content-entry.schema.json
+├─ posts/
+│  └─ 任意目录/
+│     ├─ example.md
+│     └─ example.json
+└─ challenges/
+   └─ 任意目录/
+      ├─ week-01.md
+      └─ week-01.json
 ```
+
+目录只用于整理磁盘文件，不参与页面分类、标签或归档。
 
 ## 添加文章
 
-1. 在 `posts/<分类>/` 下新建 `.md` 文件。
-2. 复制已有文章的 frontmatter，至少填写 `title`、`slug`、`date`、`category`。
-3. 在 `content-index.json` 的 `entries` 中登记文件路径和标签。
+新建 `article.md` 和同目录的 `article.json`：
 
-没有登记到索引的 Markdown 仍会自动加载，索引中的字段会覆盖 frontmatter，便于集中整理。
+```json
+{
+  "$schema": "../../content-entry.schema.json",
+  "collection": "posts",
+  "title": "文章标题",
+  "slug": "article-slug",
+  "date": "2026-06-11",
+  "updated": "2026-06-11",
+  "category": "frontend",
+  "tags": ["vue", "typescript"],
+  "excerpt": "文章摘要",
+  "isTop": false,
+  "isPublished": true,
+  "author": "博主"
+}
+```
+
+- 分类只读取 `category`。
+- 标签只读取 `tags`。
+- 归档年份和发布日期只读取 `date`。
+- Markdown 中的 frontmatter 不参与元数据计算。
 
 ## 添加题目
 
-1. 在 `challenges/<年份>/` 下新建 `.md` 文件。
-2. 设置 `collection: challenges`，并填写难度、期号、发布日期。
-3. 在 `content-index.json` 中登记标签、难度和发布频率。
+新建 `challenge.md` 和同目录的 `challenge.json`：
 
-题目正文与普通文章共用 Markdown 和 PhyCat 主题渲染能力。
+```json
+{
+  "$schema": "../../content-entry.schema.json",
+  "collection": "challenges",
+  "title": "题目标题",
+  "slug": "challenge-slug",
+  "publishAt": "2026-06-11",
+  "dueAt": "2026-06-18",
+  "tags": ["算法"],
+  "difficulty": "easy",
+  "sequence": 1,
+  "cadence": "weekly",
+  "isPublished": true,
+  "author": "博主"
+}
+```
+
+缺少同名 JSON、JSON 格式错误或必填字段缺失时，开发服务器和构建会直接报错。

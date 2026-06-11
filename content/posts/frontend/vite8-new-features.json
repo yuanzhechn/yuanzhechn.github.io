@@ -1,0 +1,14 @@
+{
+  "$schema": "../../content-entry.schema.json",
+  "collection": "posts",
+  "title": "Vite 8 新特性全面解析",
+  "slug": "vite8-new-features",
+  "date": "2025-04-28",
+  "updated": "2025-05-01",
+  "category": "frontend",
+  "tags": ["vite", "typescript"],
+  "excerpt": "介绍 Vite 8 的 HMR、CSS Modules 和构建策略变化。",
+  "isTop": false,
+  "isPublished": true,
+  "author": "博主"
+}

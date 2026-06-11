@@ -1,0 +1,14 @@
+{
+  "$schema": "../../content-entry.schema.json",
+  "collection": "posts",
+  "title": "CSS Container Queries 实战",
+  "slug": "css-container-queries-practice",
+  "date": "2025-02-22",
+  "updated": "2025-02-22",
+  "category": "frontend",
+  "tags": ["css"],
+  "excerpt": "从实际场景出发，使用容器查询构建组件级响应式布局。",
+  "isTop": false,
+  "isPublished": true,
+  "author": "博主"
+}

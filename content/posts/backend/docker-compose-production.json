@@ -1,0 +1,14 @@
+{
+  "$schema": "../../content-entry.schema.json",
+  "collection": "posts",
+  "title": "Docker Compose 在生产环境中的最佳实践",
+  "slug": "docker-compose-production",
+  "date": "2024-11-20",
+  "updated": "2024-11-22",
+  "category": "backend",
+  "tags": ["docker", "nodejs"],
+  "excerpt": "分享团队在生产环境中使用 Docker Compose 管理多容器应用的经验，包括日志、监控与备份。",
+  "isTop": false,
+  "isPublished": true,
+  "author": "博主"
+}
