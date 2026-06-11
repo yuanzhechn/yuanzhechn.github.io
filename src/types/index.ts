@@ -2,6 +2,13 @@ export type { Post, PostListItem, PostQueryParams, PostListResult } from './post
 export type { Category } from './category'
 export type { Tag } from './tag'
 export type { HomeDashboardData, HomeHeroContent, HomeStat } from './home'
+export type { FavoriteCategory, FavoriteSite } from './favorite'
+export type {
+  Challenge,
+  ChallengeCadence,
+  ChallengeDifficulty,
+  ChallengeListItem,
+} from './challenge'
 
 import type { PostListItem } from './post'
 

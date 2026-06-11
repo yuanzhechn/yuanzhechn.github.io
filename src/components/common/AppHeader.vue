@@ -16,7 +16,11 @@
         </RouterLink>
       </nav>
       <div class="header-actions">
-        <button class="theme-toggle" @click="appStore.toggleTheme" :title="appStore.isDark ? '切换到亮色模式' : '切换到暗色模式'">
+        <button
+          class="theme-toggle"
+          @click="appStore.toggleTheme"
+          :title="appStore.isDark ? '切换到亮色模式' : '切换到暗色模式'"
+        >
           {{ appStore.isDark ? '☀' : '☾' }}
         </button>
         <button class="menu-toggle" @click="appStore.toggleSidebar">
@@ -39,6 +43,8 @@ const appStore = useAppStore()
 const navLinks = [
   { name: '首页', path: '/' },
   { name: '文章', path: '/posts' },
+  { name: '每期一题', path: '/challenges' },
+  { name: '导航', path: '/favorites' },
   { name: '分类', path: '/categories' },
   { name: '标签', path: '/tags' },
   { name: '归档', path: '/archives' },

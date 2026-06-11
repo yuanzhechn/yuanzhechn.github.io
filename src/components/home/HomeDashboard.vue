@@ -1,46 +1,58 @@
 <template>
-  <section class="home-dashboard" aria-label="阅读仪表盘">
+  <section class="home-dashboard" aria-label="知识仪表盘">
     <article class="dashboard-panel category-panel">
       <div class="panel-heading">
-        <span>分类星图</span>
+        <span>知识版图</span>
         <RouterLink to="/categories">全部分类</RouterLink>
       </div>
-      <div class="category-list">
+      <div class="category-map">
         <RouterLink
           v-for="category in categories"
           :key="category.id"
           :to="`/category/${category.slug}`"
-          class="category-row"
-          :style="{ '--category-color': category.color }"
+          class="category-track"
+          :style="{
+            '--category-color': category.color,
+            '--category-width': `${Math.max(18, (category.postCount / maxCategoryCount) * 100)}%`,
+          }"
         >
-          <span class="category-mark" />
+          <span class="category-fill" />
           <span class="category-name">{{ category.name }}</span>
-          <span class="category-count">{{ category.postCount }}</span>
+          <strong>{{ category.postCount }}</strong>
         </RouterLink>
       </div>
     </article>
 
     <article class="dashboard-panel tag-panel">
       <div class="panel-heading">
-        <span>主题雷达</span>
+        <span>主题索引</span>
         <RouterLink to="/tags">标签墙</RouterLink>
       </div>
       <div class="tag-cloud">
-        <RouterLink v-for="tag in tags" :key="tag.id" :to="`/tag/${tag.slug}`" class="tag-chip">
-          # {{ tag.name }}
+        <RouterLink
+          v-for="(tag, index) in tags"
+          :key="tag.id"
+          :to="`/tag/${tag.slug}`"
+          class="tag-chip"
+          :style="{ '--tag-order': index }"
+        >
+          <span>#</span> {{ tag.name }}
+          <small>{{ tag.postCount }}</small>
         </RouterLink>
       </div>
     </article>
 
     <article class="dashboard-panel rhythm-panel">
       <div class="panel-heading">
-        <span>近期节奏</span>
+        <span>最近提交</span>
         <RouterLink to="/archives">时间线</RouterLink>
       </div>
       <ol class="rhythm-list">
         <li v-for="post in recentPosts" :key="post.id">
-          <span>{{ formatDate(post.createdAt) }}</span>
+          <span class="timeline-node" />
+          <time>{{ formatDate(post.createdAt) }}</time>
           <RouterLink :to="`/post/${post.slug}`">{{ post.title }}</RouterLink>
+          <small>{{ post.readingTime }} min</small>
         </li>
       </ol>
     </article>
@@ -48,17 +60,21 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { HomeDashboardData } from '@/types'
 import { formatDate } from '@/utils/date'
 
-defineProps<HomeDashboardData>()
+const props = defineProps<HomeDashboardData>()
+const maxCategoryCount = computed(() =>
+  Math.max(1, ...props.categories.map((category) => category.postCount)),
+)
 </script>
 
 <style scoped>
 .home-dashboard {
   display: grid;
-  grid-template-columns: 1.05fr 1fr 1.25fr;
+  grid-template-columns: 1.05fr 0.95fr 1.25fr;
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-2xl);
 }
@@ -66,10 +82,9 @@ defineProps<HomeDashboardData>()
 .dashboard-panel {
   min-width: 0;
   padding: var(--spacing-lg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  border-top: 2px solid var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
 }
 
 .panel-heading {
@@ -77,17 +92,16 @@ defineProps<HomeDashboardData>()
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 1.1rem;
 }
 
 .panel-heading span {
-  color: var(--color-text);
-  font-weight: 800;
+  font-weight: 850;
 }
 
 .panel-heading a {
   color: var(--color-text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   text-decoration: none;
 }
 
@@ -95,107 +109,128 @@ defineProps<HomeDashboardData>()
   color: var(--color-primary);
 }
 
-.category-list,
-.rhythm-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
+.category-map {
+  display: grid;
+  gap: 0.62rem;
 }
 
-.category-row {
+.category-track {
+  position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: var(--spacing-sm);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  min-height: 40px;
-  padding: 0 var(--spacing-sm);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  min-height: 38px;
+  overflow: hidden;
+  border-radius: 4px;
   color: var(--color-text);
   text-decoration: none;
-  background: color-mix(in srgb, var(--category-color) 9%, transparent);
+  background: var(--color-bg-secondary);
 }
 
-.category-row:hover {
-  border-color: color-mix(in srgb, var(--category-color) 45%, var(--color-border));
+.category-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--category-width);
+  background: color-mix(in srgb, var(--category-color) 24%, transparent);
+  transition: width 0.25s ease;
 }
 
-.category-mark {
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: var(--radius-sm);
-  background: var(--category-color);
+.category-track:hover .category-fill {
+  width: 100%;
 }
 
-.category-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.category-name,
+.category-track strong {
+  position: relative;
+  z-index: 1;
+  padding: 0 0.7rem;
+  font-size: 0.82rem;
 }
 
-.category-count {
-  color: var(--color-text-secondary);
-  font-size: 0.86rem;
-  font-weight: 700;
+.category-track strong {
+  color: var(--category-color);
 }
 
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-sm);
+  gap: 0.52rem;
 }
 
 .tag-chip {
-  padding: 0.32rem 0.68rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+  padding: 0.34rem 0.58rem;
+  border-bottom: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   text-decoration: none;
-  background: var(--color-bg-secondary);
-  transition:
-    color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease;
+}
+
+.tag-chip span {
+  color: var(--color-primary);
+  font-weight: 850;
+}
+
+.tag-chip small {
+  color: color-mix(in srgb, var(--color-text-secondary) 58%, transparent);
 }
 
 .tag-chip:hover {
   border-color: var(--color-primary);
-  color: var(--color-primary);
-  transform: translateY(-2px);
+  color: var(--color-text);
 }
 
 .rhythm-list {
+  position: relative;
+  display: grid;
+  gap: 0.85rem;
   padding: 0;
   margin: 0;
   list-style: none;
 }
 
+.rhythm-list::before {
+  content: '';
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 4px;
+  width: 1px;
+  background: var(--color-border);
+}
+
 .rhythm-list li {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: var(--spacing-md);
+  grid-template-columns: 9px 76px minmax(0, 1fr) auto;
+  gap: 0.65rem;
   align-items: baseline;
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 1px dashed var(--color-border-light);
 }
 
-.rhythm-list li:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
+.timeline-node {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
 }
 
-.rhythm-list span {
+.rhythm-list time,
+.rhythm-list small {
   color: var(--color-text-secondary);
-  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 0.78rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.7rem;
 }
 
 .rhythm-list a {
   overflow: hidden;
   color: var(--color-text);
+  font-size: 0.82rem;
   font-weight: 700;
-  line-height: 1.55;
   text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -206,8 +241,8 @@ defineProps<HomeDashboardData>()
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tag-chip:hover {
-    transform: none;
+  .category-fill {
+    transition: none;
   }
 }
 
@@ -231,8 +266,11 @@ defineProps<HomeDashboardData>()
   }
 
   .rhythm-list li {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-xs);
+    grid-template-columns: 9px minmax(0, 1fr) auto;
+  }
+
+  .rhythm-list time {
+    display: none;
   }
 }
 </style>

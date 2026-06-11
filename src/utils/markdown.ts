@@ -106,10 +106,14 @@ export function renderMarkdown(md: string): string {
       },
       code({ text, lang }: Tokens.Code) {
         const language = lang?.trim().split(/\s+/)[0] ?? ''
-        const langAttr = language ? ` data-lang="${escapeAttribute(language)}"` : ''
-        const codeClass = language ? ` class="language-${escapeAttribute(language)}"` : ''
+        const langAttr = language
+          ? ` lang="${escapeAttribute(language)}" data-lang="${escapeAttribute(language)}"`
+          : ''
 
-        return `<pre class="code-block"${langAttr}><code${codeClass}>${escapeHtml(text)}</code></pre>\n`
+        return `<pre class="code-block md-fences"${langAttr}><code class="md-fencescode${language ? ` language-${escapeAttribute(language)}` : ''}">${escapeHtml(text)}</code></pre>\n`
+      },
+      html(token: Tokens.HTML | Tokens.Tag) {
+        return `<pre class="escaped-html"><code>${escapeHtml(token.text)}</code></pre>\n`
       },
       codespan({ text }: Tokens.Codespan) {
         return `<code class="inline-code">${escapeHtml(text)}</code>`

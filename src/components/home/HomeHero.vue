@@ -7,42 +7,41 @@
 
       <div class="hero-actions">
         <RouterLink to="/posts" class="primary-action">开始阅读</RouterLink>
-        <RouterLink to="/archives" class="secondary-action">浏览归档</RouterLink>
+        <RouterLink to="/challenges" class="secondary-action">每期一题</RouterLink>
       </div>
 
       <dl class="hero-stats" aria-label="博客数据">
-        <div v-for="stat in stats" :key="stat.key" class="stat-card">
-          <dt>{{ stat.label }}</dt>
+        <div v-for="stat in stats" :key="stat.key" class="stat-item">
           <dd>{{ stat.value }}</dd>
+          <dt>{{ stat.label }}</dt>
         </div>
       </dl>
     </div>
 
-    <aside class="hero-console" aria-label="博客动态">
-      <div class="console-top">
-        <span class="console-label">WRITING DESK</span>
-        <span class="console-status">Live</span>
+    <aside class="featured-note" aria-label="精选文章">
+      <div class="featured-topline">
+        <span>Selected Note</span>
+        <span class="featured-status">已更新</span>
       </div>
 
-      <RouterLink v-if="featuredPost" :to="`/post/${featuredPost.slug}`" class="featured-card">
-        <span class="featured-label">最新精选</span>
+      <RouterLink v-if="featuredPost" :to="`/post/${featuredPost.slug}`" class="featured-link">
+        <span class="featured-category">{{ featuredPost.category }}</span>
         <strong>{{ featuredPost.title }}</strong>
-        <span
-          >{{ formatDate(featuredPost.createdAt) }} · {{ featuredPost.readingTime }} 分钟阅读</span
-        >
+        <p>{{ featuredPost.excerpt }}</p>
+        <div class="featured-meta">
+          <span>{{ formatDate(featuredPost.createdAt) }}</span>
+          <span>{{ featuredPost.readingTime }} 分钟阅读</span>
+        </div>
+        <div class="featured-tags">
+          <span v-for="tag in featuredPost.tags.slice(0, 4)" :key="tag"># {{ tag }}</span>
+        </div>
+        <span class="featured-arrow" aria-hidden="true">↗</span>
       </RouterLink>
 
-      <div class="signal-widget" aria-hidden="true">
-        <span
-          v-for="bar in signalBars"
-          :key="bar"
-          class="signal-bar"
-          :style="{ '--bar-height': `${bar}%` }"
-        />
-      </div>
+      <div v-else class="featured-empty">第一篇文章正在路上。</div>
 
-      <div class="console-grid" aria-hidden="true">
-        <span v-for="cell in 24" :key="cell" :class="{ active: activeCells.includes(cell) }" />
+      <div class="document-scale" aria-hidden="true">
+        <span v-for="line in scaleLines" :key="line" :style="{ width: `${line}%` }" />
       </div>
     </aside>
   </section>
@@ -59,31 +58,28 @@ defineProps<{
   featuredPost?: PostListItem
 }>()
 
-const signalBars = [38, 72, 52, 88, 46, 64, 96, 58, 74]
-const activeCells = [2, 4, 5, 8, 11, 13, 16, 17, 20, 22, 23]
+const scaleLines = [100, 86, 94, 62, 78, 48]
 </script>
 
 <style scoped>
 .home-hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-  gap: var(--spacing-xl);
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+  min-height: 440px;
   margin: var(--spacing-md) 0 var(--spacing-2xl);
-  padding: clamp(1.5rem, 4vw, 3rem);
+  padding: clamp(2rem, 5vw, 3.8rem) clamp(1.5rem, 5vw, 4rem);
   overflow: hidden;
+  border-bottom: 1px solid var(--color-border);
   background:
     linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--color-primary) 10%, transparent),
-      transparent 36%
+      112deg,
+      color-mix(in srgb, var(--color-primary) 11%, transparent),
+      transparent 44%
     ),
-    linear-gradient(
-      180deg,
-      var(--color-surface),
-      color-mix(in srgb, var(--color-bg) 78%, var(--color-surface))
-    );
+    var(--color-surface);
 }
 
 .home-hero::before {
@@ -92,53 +88,51 @@ const activeCells = [2, 4, 5, 8, 11, 13, 16, 17, 20, 22, 23]
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(color-mix(in srgb, var(--color-border) 50%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--color-border) 42%, transparent) 1px, transparent 1px),
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--color-border) 50%, transparent) 1px,
+      color-mix(in srgb, var(--color-border) 42%, transparent) 1px,
       transparent 1px
     );
-  background-size: 42px 42px;
-  mask-image: linear-gradient(120deg, #000 0%, transparent 58%);
-  opacity: 0.36;
+  background-size: 38px 38px;
+  mask-image: linear-gradient(115deg, #000 0%, transparent 52%);
+  opacity: 0.46;
 }
 
 .hero-copy,
-.hero-console {
+.featured-note {
   position: relative;
   z-index: 1;
 }
 
 .hero-kicker {
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 0.75rem;
   color: var(--color-primary);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
 .hero-title {
-  max-width: 12ch;
-  margin-bottom: var(--spacing-md);
-  color: var(--color-text);
-  font-size: 4.5rem;
-  font-weight: 800;
-  line-height: 0.98;
+  max-width: 10ch;
+  margin-bottom: 1rem;
+  font-size: 3.65rem;
+  font-weight: 850;
+  line-height: 1;
 }
 
 .hero-subtitle {
   max-width: 620px;
   color: var(--color-text-secondary);
-  font-size: 1.08rem;
-  line-height: 1.8;
+  font-size: 1.02rem;
+  line-height: 1.85;
 }
 
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-xl);
+  gap: 0.65rem;
+  margin-top: 1.6rem;
 }
 
 .primary-action,
@@ -147,25 +141,25 @@ const activeCells = [2, 4, 5, 8, 11, 13, 16, 17, 20, 22, 23]
   align-items: center;
   justify-content: center;
   min-height: 42px;
-  padding: 0 var(--spacing-lg);
+  padding: 0 1.15rem;
   border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 800;
   text-decoration: none;
-  font-weight: 700;
   transition:
-    transform 0.2s ease,
-    border-color 0.2s ease,
-    background 0.2s ease;
+    transform 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .primary-action {
-  background: var(--color-primary);
   color: #fff;
+  background: var(--color-primary);
 }
 
 .secondary-action {
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
 }
 
 .primary-action:hover,
@@ -175,179 +169,156 @@ const activeCells = [2, 4, 5, 8, 11, 13, 16, 17, 20, 22, 23]
 
 .secondary-action:hover {
   border-color: var(--color-primary);
-  color: var(--color-primary);
 }
 
 .hero-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-xl);
+  display: flex;
+  gap: clamp(1.2rem, 4vw, 2.5rem);
+  margin-top: 1.8rem;
 }
 
-.stat-card {
-  padding: var(--spacing-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+.stat-item {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
 }
 
-.stat-card dt {
-  margin-bottom: var(--spacing-xs);
+.stat-item dd {
+  font-size: 1.4rem;
+  font-weight: 850;
+}
+
+.stat-item dt {
   color: var(--color-text-secondary);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
 }
 
-.stat-card dd {
-  color: var(--color-text);
-  font-size: 1.55rem;
-  font-weight: 800;
+.featured-note {
+  min-width: 0;
+  padding-left: clamp(1.5rem, 4vw, 3rem);
+  border-left: 1px solid var(--color-border);
 }
 
-.hero-console {
+.featured-topline,
+.featured-meta,
+.featured-tags {
   display: flex;
-  flex-direction: column;
-  min-height: 360px;
-  padding: var(--spacing-lg);
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, var(--color-primary));
-  border-radius: var(--radius-md);
-  background:
-    linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--color-bg-secondary) 82%, transparent),
-      transparent
-    ),
-    var(--color-surface);
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
 }
 
-.console-top {
-  display: flex;
+.featured-topline {
   justify-content: space-between;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
-}
-
-.console-label,
-.console-status,
-.featured-label {
+  margin-bottom: 1.3rem;
   color: var(--color-text-secondary);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
-.console-status {
+.featured-status {
   position: relative;
-  padding-left: 0.8rem;
+  padding-left: 0.75rem;
   color: var(--color-primary);
 }
 
-.console-status::before {
+.featured-status::before {
   content: '';
   position: absolute;
   top: 50%;
   left: 0;
-  width: 0.45rem;
-  height: 0.45rem;
+  width: 0.42rem;
+  height: 0.42rem;
   border-radius: 50%;
-  background: var(--color-primary);
+  background: currentColor;
   transform: translateY(-50%);
-  animation: pulse 1.8s ease-in-out infinite;
+  animation: statusPulse 1.8s ease-in-out infinite;
 }
 
-.featured-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+.featured-link {
+  position: relative;
+  display: grid;
+  gap: 0.8rem;
   color: var(--color-text);
   text-decoration: none;
-  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
 }
 
-.featured-card strong {
-  font-size: 1.1rem;
-  line-height: 1.55;
+.featured-category {
+  color: var(--color-primary);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
-.featured-card span:last-child {
+.featured-link strong {
+  max-width: 18ch;
+  font-size: 1.65rem;
+  line-height: 1.28;
+}
+
+.featured-link p {
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--color-text-secondary);
-  font-size: 0.86rem;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
-.signal-widget {
+.featured-meta,
+.featured-tags {
+  color: var(--color-text-secondary);
+  font-size: 0.74rem;
+}
+
+.featured-tags {
+  color: color-mix(in srgb, var(--color-primary) 72%, var(--color-text-secondary));
+}
+
+.featured-arrow {
+  position: absolute;
+  top: -0.3rem;
+  right: 0;
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  align-items: end;
-  gap: 0.45rem;
-  height: 112px;
-  margin: auto 0 var(--spacing-lg);
-  padding: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border);
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
 }
 
-.signal-bar {
-  height: var(--bar-height);
-  min-height: 18px;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: linear-gradient(180deg, #38bdf8, var(--color-primary));
-  animation: floatBar 3.8s ease-in-out infinite;
+.featured-link:hover .featured-arrow {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-.signal-bar:nth-child(2n) {
-  background: linear-gradient(180deg, #f59e0b, #ef4444);
-  animation-delay: 0.4s;
+.featured-empty {
+  color: var(--color-text-secondary);
 }
 
-.signal-bar:nth-child(3n) {
-  animation-delay: 0.8s;
-}
-
-.console-grid {
+.document-scale {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 0.35rem;
+  gap: 0.36rem;
+  margin-top: 1.5rem;
+  opacity: 0.55;
 }
 
-.console-grid span {
-  aspect-ratio: 1;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-secondary);
+.document-scale span {
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), transparent);
 }
 
-.console-grid span.active {
-  background: color-mix(in srgb, var(--color-primary) 82%, #38bdf8);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--color-primary) 36%, transparent);
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: translateY(-50%) scale(1);
-  }
+@keyframes statusPulse {
   50% {
-    opacity: 0.45;
+    opacity: 0.35;
     transform: translateY(-50%) scale(1.35);
   }
 }
 
-@keyframes floatBar {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .console-status::before,
-  .signal-bar {
+  .featured-status::before {
     animation: none;
   }
 
@@ -360,37 +331,44 @@ const activeCells = [2, 4, 5, 8, 11, 13, 16, 17, 20, 22, 23]
 @media (max-width: 900px) {
   .home-hero {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
 
-  .hero-title {
-    font-size: 3.25rem;
-  }
-
-  .hero-console {
-    min-height: 300px;
+  .featured-note {
+    padding-top: 1.5rem;
+    padding-left: 0;
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
   }
 }
 
 @media (max-width: 640px) {
   .home-hero {
-    padding: var(--spacing-lg);
+    padding: 1.5rem 1rem;
   }
 
   .hero-title {
-    font-size: 2.55rem;
-  }
-
-  .hero-stats {
-    grid-template-columns: 1fr;
+    font-size: 2.65rem;
   }
 
   .hero-actions {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
-  .primary-action,
-  .secondary-action {
-    width: 100%;
+  .hero-stats {
+    justify-content: space-between;
+    gap: 0.65rem;
+  }
+
+  .stat-item {
+    display: grid;
+    gap: 0;
+  }
+
+  .featured-link strong {
+    padding-right: 2.7rem;
+    font-size: 1.3rem;
   }
 }
 </style>

@@ -3,11 +3,17 @@
     <div class="home-page">
       <HomeHero :site="site" :stats="heroStats" :featured-post="featuredPost" />
 
+      <HomeQuickFinder :posts="postStore.posts" />
+
+      <HomeActivityHeatmap :posts="postStore.posts" />
+
       <HomeDashboard
         :categories="featuredCategories"
         :tags="featuredTags"
         :recent-posts="recentPosts"
       />
+
+      <HomeChallengeSpotlight :challenge="challengeStore.latestChallenge" />
 
       <section class="home-section" aria-labelledby="latest-posts-title">
         <div class="section-heading">
@@ -18,7 +24,7 @@
           <RouterLink v-if="postStore.hasPosts" to="/posts" class="view-all"> 查看全部 </RouterLink>
         </div>
 
-        <PostList :posts="postStore.posts" :loading="postStore.loading" :error="postStore.error" />
+        <PostList :posts="latestPosts" :loading="postStore.loading" :error="postStore.error" />
       </section>
     </div>
   </DefaultLayout>
@@ -31,7 +37,11 @@ import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import PostList from '@/components/blog/PostList.vue'
 import HomeDashboard from '@/components/home/HomeDashboard.vue'
 import HomeHero from '@/components/home/HomeHero.vue'
+import HomeQuickFinder from '@/components/home/HomeQuickFinder.vue'
+import HomeActivityHeatmap from '@/components/home/HomeActivityHeatmap.vue'
+import HomeChallengeSpotlight from '@/components/home/HomeChallengeSpotlight.vue'
 import { useCategoryStore } from '@/stores/category'
+import { useChallengeStore } from '@/stores/challenge'
 import { usePostStore } from '@/stores/post'
 import { useTagStore } from '@/stores/tag'
 import type { HomeHeroContent, HomeStat } from '@/types'
@@ -45,6 +55,7 @@ const site: HomeHeroContent = {
 const postStore = usePostStore()
 const categoryStore = useCategoryStore()
 const tagStore = useTagStore()
+const challengeStore = useChallengeStore()
 
 const featuredPost = computed(
   () => postStore.posts.find((post) => post.isTop) ?? postStore.posts[0],
@@ -53,6 +64,7 @@ const featuredPost = computed(
 const featuredCategories = computed(() => categoryStore.categories.slice(0, 4))
 const featuredTags = computed(() => tagStore.tags.slice(0, 10))
 const recentPosts = computed(() => postStore.posts.slice(0, 3))
+const latestPosts = computed(() => postStore.posts.slice(0, 5))
 
 const heroStats = computed<HomeStat[]>(() => [
   { key: 'posts', label: '文章', value: postStore.total || postStore.posts.length },
@@ -61,9 +73,10 @@ const heroStats = computed<HomeStat[]>(() => [
 ])
 
 onMounted(() => {
-  postStore.fetchPosts({ pageSize: 5 })
+  postStore.fetchPosts({ pageSize: 100 })
   categoryStore.fetchCategories()
   tagStore.fetchTags()
+  challengeStore.fetchChallenges()
 })
 </script>
 

@@ -50,6 +50,24 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '归档' },
   },
   {
+    path: '/favorites',
+    name: 'favorites',
+    component: () => import('@/views/FavoritesView.vue'),
+    meta: { title: '常用网站' },
+  },
+  {
+    path: '/challenges',
+    name: 'challenges',
+    component: () => import('@/views/ChallengeListView.vue'),
+    meta: { title: '每期一题' },
+  },
+  {
+    path: '/challenge/:slug',
+    name: 'challenge-detail',
+    component: () => import('@/views/ChallengeDetailView.vue'),
+    meta: { title: '题目详情' },
+  },
+  {
     path: '/about',
     name: 'about',
     component: () => import('@/views/AboutView.vue'),

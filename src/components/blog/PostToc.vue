@@ -1,12 +1,10 @@
 <template>
   <nav class="post-toc">
     <ul class="toc-list">
-      <li
-        v-for="item in items"
-        :key="item.id"
-        :class="['toc-item', `toc-level-${item.level}`]"
-      >
-        <a :href="`#${item.id}`" class="toc-link">{{ item.text }}</a>
+      <li v-for="item in items" :key="item.id" :class="['toc-item', `toc-level-${item.level}`]">
+        <a :href="`#${item.id}`" class="toc-link" @click.prevent="emit('navigate', item.id)">
+          {{ item.text }}
+        </a>
       </li>
     </ul>
   </nav>
@@ -17,6 +15,10 @@ import type { TableOfContent } from '@/types'
 
 defineProps<{
   items: TableOfContent[]
+}>()
+
+const emit = defineEmits<{
+  navigate: [id: string]
 }>()
 </script>
 

@@ -9,13 +9,22 @@
       </div>
       <article v-else-if="postStore.currentPost" class="post-article">
         <header class="post-header">
-          <h1 class="post-title">{{ postStore.currentPost.title }}</h1>
-          <PostMeta :post="postStore.currentPost" />
+          <div class="post-heading">
+            <div>
+              <h1 class="post-title">{{ postStore.currentPost.title }}</h1>
+              <PostMeta :post="postStore.currentPost" />
+            </div>
+            <MarkdownThemePicker />
+          </div>
         </header>
         <div v-if="toc.length > 0" class="post-toc-mobile">
-          <PostToc :items="toc" />
+          <PostToc :items="toc" @navigate="scrollToHeading" />
         </div>
-        <MarkdownRenderer class="post-body" :content="postStore.currentPost.content" />
+        <MarkdownRenderer
+          ref="markdownRenderer"
+          class="post-body"
+          :content="postStore.currentPost.content"
+        />
         <footer class="post-footer">
           <div class="post-tags">
             <PostTag v-for="tag in postStore.currentPost.tags" :key="tag" :tag="tag" />
@@ -27,7 +36,7 @@
       <aside class="sidebar-widgets">
         <div v-if="toc.length > 0" class="widget">
           <h3 class="widget-title">目录</h3>
-          <PostToc :items="toc" />
+          <PostToc :items="toc" @navigate="scrollToHeading" />
         </div>
       </aside>
     </template>
@@ -35,10 +44,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
+import MarkdownThemePicker from '@/components/common/MarkdownThemePicker.vue'
 import PostMeta from '@/components/blog/PostMeta.vue'
 import PostTag from '@/components/blog/PostTag.vue'
 import PostToc from '@/components/blog/PostToc.vue'
@@ -49,6 +59,7 @@ import { extractToc } from '@/utils/markdown'
 
 const route = useRoute()
 const postStore = usePostStore()
+const markdownRenderer = ref<InstanceType<typeof MarkdownRenderer>>()
 
 const toc = computed(() => {
   if (!postStore.currentPost) return []
@@ -63,6 +74,10 @@ function loadPost() {
   postStore.fetchPostBySlug(slug)
 }
 
+function scrollToHeading(id: string) {
+  markdownRenderer.value?.scrollToHeading(id)
+}
+
 watch(() => route.params.slug, loadPost, { immediate: true })
 </script>
 
@@ -73,6 +88,13 @@ watch(() => route.params.slug, loadPost, { immediate: true })
 
 .post-header {
   margin-bottom: var(--spacing-xl);
+}
+
+.post-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
 }
 
 .post-title {
@@ -133,6 +155,10 @@ watch(() => route.params.slug, loadPost, { immediate: true })
 }
 
 @media (max-width: 768px) {
+  .post-heading {
+    flex-direction: column;
+  }
+
   .post-toc-mobile {
     display: block;
   }

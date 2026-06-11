@@ -1,0 +1,109 @@
+{
+  "$schema": "./content-index.schema.json",
+  "version": 1,
+  "collections": {
+    "posts": {
+      "label": "文章",
+      "directory": "posts",
+      "routeBase": "/post"
+    },
+    "challenges": {
+      "label": "每期一题",
+      "directory": "challenges",
+      "routeBase": "/challenge"
+    }
+  },
+  "categories": {
+    "frontend": {
+      "name": "前端开发",
+      "description": "HTML、CSS、JavaScript、Vue 等前端实践",
+      "color": "#4fc08d"
+    },
+    "backend": {
+      "name": "后端开发",
+      "description": "Node.js、服务架构与部署实践",
+      "color": "#f59e0b"
+    },
+    "tools": {
+      "name": "工具效率",
+      "description": "开发工具、工作流和工程效率",
+      "color": "#ef6a6a"
+    },
+    "life": {
+      "name": "生活随笔",
+      "description": "复盘、阅读和生活观察",
+      "color": "#8b6fd0"
+    },
+    "guides": {
+      "name": "使用指南",
+      "description": "博客使用、内容维护和主题说明",
+      "color": "#3b82f6"
+    }
+  },
+  "entries": {
+    "posts/frontend/build-blog-with-vue3-typescript.md": {
+      "collection": "posts",
+      "category": "frontend",
+      "tags": ["vue", "typescript", "vite"]
+    },
+    "posts/frontend/css-container-queries-practice.md": {
+      "collection": "posts",
+      "category": "frontend",
+      "tags": ["css"]
+    },
+    "posts/frontend/sorting-algorithm-visualization.md": {
+      "collection": "posts",
+      "category": "frontend",
+      "tags": ["algorithm", "typescript"]
+    },
+    "posts/frontend/vite8-new-features.md": {
+      "collection": "posts",
+      "category": "frontend",
+      "tags": ["vite", "typescript"]
+    },
+    "posts/backend/docker-compose-production.md": {
+      "collection": "posts",
+      "category": "backend",
+      "tags": ["docker", "nodejs"]
+    },
+    "posts/backend/nodejs-microservice-practice.md": {
+      "collection": "posts",
+      "category": "backend",
+      "tags": ["nodejs", "docker"]
+    },
+    "posts/tools/git-advanced-tips.md": {
+      "collection": "posts",
+      "category": "tools",
+      "tags": ["git"]
+    },
+    "posts/life/2024-year-review.md": {
+      "collection": "posts",
+      "category": "life",
+      "tags": ["复盘"]
+    },
+    "posts/guides/phycat-theme-guide.md": {
+      "collection": "posts",
+      "category": "guides",
+      "tags": ["markdown", "typora", "css", "主题"]
+    },
+    "posts/guides/content-management-workflow.md": {
+      "collection": "posts",
+      "category": "guides",
+      "tags": ["markdown", "内容管理", "工程化"]
+    },
+    "challenges/2026/week-01-two-sum.md": {
+      "collection": "challenges",
+      "tags": ["数组", "哈希表", "算法"],
+      "difficulty": "easy",
+      "sequence": 1,
+      "cadence": "weekly"
+    },
+    "challenges/2026/week-02-debounce.md": {
+      "collection": "challenges",
+      "tags": ["JavaScript", "函数", "工程实践"],
+      "difficulty": "medium",
+      "sequence": 2,
+      "cadence": "weekly"
+    }
+  }
+}

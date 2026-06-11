@@ -36,6 +36,11 @@ const categoryConfig: Record<string, { name: string; description: string; color:
   },
   tools: { name: '工具效率', description: '开发工具、效率提升相关文章', color: '#FF6B6B' },
   life: { name: '生活随笔', description: '日常生活、读书感悟分享', color: '#845EC2' },
+  guides: {
+    name: '使用指南',
+    description: '博客维护、内容管理和主题使用说明',
+    color: '#3B82F6',
+  },
   notes: { name: '随笔记录', description: '未单独归类的 Markdown 文章', color: '#38BDF8' },
 }
 
