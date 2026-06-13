@@ -19,7 +19,7 @@
           </header>
           <ol>
             <li v-for="document in group.documents" :key="document.id">
-              <RouterLink :to="`/document/${document.slug}`">
+              <RouterLink :to="`/document/${group.slug}/${document.slug}`">
                 <span>{{ document.order }}</span>
                 <div>
                   <strong>{{ document.title }}</strong>

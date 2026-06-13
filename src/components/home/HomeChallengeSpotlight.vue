@@ -11,7 +11,7 @@
           <p>{{ difficultyLabel }} · 截止 {{ formatDate(challenge.dueAt) }}</p>
           <h2 id="challenge-spotlight-title">{{ challenge.title }}</h2>
         </div>
-        <RouterLink :to="`/challenge/${challenge.slug}`" class="challenge-action">
+        <RouterLink :to="`/challenge/${challenge.groupSlug}/${challenge.slug}`" class="challenge-action">
           查看题目 <span aria-hidden="true">→</span>
         </RouterLink>
       </div>

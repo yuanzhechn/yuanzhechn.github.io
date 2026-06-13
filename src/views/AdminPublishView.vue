@@ -65,20 +65,27 @@
             </label>
             <template v-if="form.collection === 'documents'">
               <label>
-                <span>文档集名称</span>
-                <input
-                  v-model.trim="form.groupTitle"
-                  list="document-group-titles"
-                  placeholder="例如：数据库学习"
+                <span>文档集</span>
+                <select
+                  v-model="selectedDocumentGroupSlug"
+                  :disabled="Boolean(editingSlug)"
+                  required
                   @change="selectDocumentGroup"
-                />
-                <datalist id="document-group-titles">
-                  <option v-for="group in documentGroups" :key="group.slug" :value="group.title" />
-                </datalist>
+                >
+                  <option value="">请选择已有文档集</option>
+                  <option v-for="group in documentGroups" :key="group.slug" :value="group.slug">
+                    {{ group.title }}
+                  </option>
+                  <option value="__new__">+ 新建文档集</option>
+                </select>
               </label>
-              <label>
-                <span>文档集 Slug</span>
-                <input v-model.trim="form.groupSlug" placeholder="database-learning" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" />
+              <label v-if="selectedDocumentGroupSlug === '__new__'">
+                <span>新文档集名称</span>
+                <input v-model.trim="form.groupTitle" required placeholder="例如：数据库学习" />
+              </label>
+              <label v-if="selectedDocumentGroupSlug === '__new__'">
+                <span>新文档集 Slug</span>
+                <input v-model.trim="form.groupSlug" required placeholder="database-learning" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" />
               </label>
               <label>
                 <span>章节顺序</span>
@@ -86,6 +93,29 @@
               </label>
             </template>
             <template v-if="form.collection === 'challenges'">
+              <label>
+                <span>训练集</span>
+                <select
+                  v-model="selectedChallengeGroupSlug"
+                  :disabled="Boolean(editingSlug)"
+                  required
+                  @change="selectChallengeGroup"
+                >
+                  <option value="">请选择已有训练集</option>
+                  <option v-for="group in challengeGroups" :key="group.slug" :value="group.slug">
+                    {{ group.title }}
+                  </option>
+                  <option value="__new__">+ 新建训练集</option>
+                </select>
+              </label>
+              <label v-if="selectedChallengeGroupSlug === '__new__'">
+                <span>新训练集名称</span>
+                <input v-model.trim="form.groupTitle" required placeholder="例如：JavaScript 与算法训练" />
+              </label>
+              <label v-if="selectedChallengeGroupSlug === '__new__'">
+                <span>新训练集 Slug</span>
+                <input v-model.trim="form.groupSlug" required placeholder="javascript-algorithm-training" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" />
+              </label>
               <label>
                 <span>难度</span>
                 <select v-model="form.difficulty">
@@ -192,7 +222,8 @@ import { adminApi, type AdminCollection, type EditableContent } from '@/api/modu
 import { useAdminSession } from '@/composables/useAdminSession'
 import { useTagStore } from '@/stores/tag'
 import { documentApi } from '@/api/modules/document'
-import type { DocumentGroup } from '@/types'
+import { challengeApi } from '@/api/modules/challenge'
+import type { ChallengeGroup, DocumentGroup } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -207,6 +238,9 @@ const editingSlug = ref('')
 const tagDraft = ref('')
 const tagInputElement = ref<HTMLInputElement>()
 const documentGroups = ref<DocumentGroup[]>([])
+const challengeGroups = ref<ChallengeGroup[]>([])
+const selectedDocumentGroupSlug = ref('')
+const selectedChallengeGroupSlug = ref('')
 
 const blankForm = (): EditableContent => ({
   collection: 'posts',
@@ -266,12 +300,37 @@ function focusTagInput() {
 }
 
 function selectDocumentGroup() {
-  const existing = documentGroups.value.find((group) => group.title === form.groupTitle)
-  if (existing) form.groupSlug = existing.slug
+  if (selectedDocumentGroupSlug.value === '__new__') {
+    form.groupSlug = ''
+    form.groupTitle = ''
+    return
+  }
+  const existing = documentGroups.value.find(
+    (group) => group.slug === selectedDocumentGroupSlug.value,
+  )
+  form.groupSlug = existing?.slug || ''
+  form.groupTitle = existing?.title || ''
+}
+
+function selectChallengeGroup() {
+  if (selectedChallengeGroupSlug.value === '__new__') {
+    form.groupSlug = ''
+    form.groupTitle = ''
+    return
+  }
+  const existing = challengeGroups.value.find(
+    (group) => group.slug === selectedChallengeGroupSlug.value,
+  )
+  form.groupSlug = existing?.slug || ''
+  form.groupTitle = existing?.title || ''
 }
 
 function applyContent(content: EditableContent) {
   Object.assign(form, blankForm(), content)
+  selectedDocumentGroupSlug.value =
+    content.collection === 'documents' ? content.groupSlug || '' : ''
+  selectedChallengeGroupSlug.value =
+    content.collection === 'challenges' ? content.groupSlug || '' : ''
 }
 
 async function loadEditTarget() {
@@ -311,6 +370,8 @@ async function handleLogout() {
 function startNew() {
   editingSlug.value = ''
   applyContent(blankForm())
+  selectedDocumentGroupSlug.value = ''
+  selectedChallengeGroupSlug.value = ''
   errorMessage.value = ''
   successMessage.value = ''
   void router.replace({ name: 'admin-publish' })
@@ -342,8 +403,13 @@ async function save() {
 }
 
 onMounted(async () => {
-  const [, groups] = await Promise.all([tagStore.fetchTags(), documentApi.listGroups()])
+  const [, groups, trainingGroups] = await Promise.all([
+    tagStore.fetchTags(),
+    documentApi.listGroups(),
+    challengeApi.getChallengeList(),
+  ])
   documentGroups.value = groups
+  challengeGroups.value = trainingGroups
   await checkSession()
   await loadEditTarget()
 })

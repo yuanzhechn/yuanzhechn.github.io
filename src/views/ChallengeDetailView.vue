@@ -16,7 +16,15 @@
               <span>{{ difficultyLabel }}</span>
             </div>
           </div>
-          <MarkdownThemePicker />
+          <div class="challenge-actions">
+            <RouterLink
+              v-if="authenticated"
+              :to="{ name: 'admin-publish', query: { edit: challengeStore.currentChallenge.slug, collection: 'challenges' } }"
+            >
+              编辑题目
+            </RouterLink>
+            <MarkdownThemePicker />
+          </div>
         </header>
         <MarkdownRenderer
           ref="markdownRenderer"
@@ -31,14 +39,14 @@
         <div class="sidebar-tags">
           <span v-for="tag in challengeStore.currentChallenge.tags" :key="tag"># {{ tag }}</span>
         </div>
-        <RouterLink to="/challenges">返回题目列表</RouterLink>
+        <RouterLink to="/challenges">返回 {{ challengeStore.currentChallenge.groupTitle }}</RouterLink>
       </aside>
     </template>
   </BlogLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
@@ -48,11 +56,13 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import { useChallengeStore } from '@/stores/challenge'
 import { useMarkdownTheme } from '@/composables/useMarkdownTheme'
 import { formatDate } from '@/utils/date'
+import { useAdminSession } from '@/composables/useAdminSession'
 
 const route = useRoute()
 const challengeStore = useChallengeStore()
 const markdownRenderer = ref<InstanceType<typeof MarkdownRenderer>>()
 const { pageThemeStyle } = useMarkdownTheme()
+const { authenticated, checkSession } = useAdminSession()
 
 const difficultyLabel = computed(() => {
   const difficulty = challengeStore.currentChallenge?.difficulty
@@ -60,12 +70,15 @@ const difficultyLabel = computed(() => {
 })
 
 function loadChallenge() {
+  const groupParam = route.params.groupSlug
   const slugParam = route.params.slug
+  const groupSlug = Array.isArray(groupParam) ? groupParam.join('/') : groupParam
   const slug = Array.isArray(slugParam) ? slugParam.join('/') : slugParam
-  if (slug) challengeStore.fetchChallengeBySlug(slug)
+  if (groupSlug && slug) challengeStore.fetchChallengeBySlug(groupSlug, slug)
 }
 
-watch(() => route.params.slug, loadChallenge, { immediate: true })
+watch(() => [route.params.groupSlug, route.params.slug], loadChallenge, { immediate: true })
+onMounted(() => checkSession())
 </script>
 
 <style scoped>
@@ -96,6 +109,22 @@ watch(() => route.params.slug, loadChallenge, { immediate: true })
   gap: 0.55rem 1rem;
   color: var(--color-text-secondary);
   font-size: 0.82rem;
+}
+
+.challenge-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.challenge-actions > a {
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .challenge-sidebar {

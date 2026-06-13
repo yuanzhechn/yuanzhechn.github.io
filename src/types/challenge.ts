@@ -15,6 +15,8 @@ export interface Challenge {
   cadence: ChallengeCadence
   readingTime: number
   isPublished: boolean
+  groupSlug: string
+  groupTitle: string
 }
 
 export interface ChallengeListItem {
@@ -29,4 +31,12 @@ export interface ChallengeListItem {
   sequence: number
   cadence: ChallengeCadence
   readingTime: number
+  groupSlug: string
+  groupTitle: string
+}
+
+export interface ChallengeGroup {
+  slug: string
+  title: string
+  challenges: ChallengeListItem[]
 }

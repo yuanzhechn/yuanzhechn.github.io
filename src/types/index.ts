@@ -7,6 +7,7 @@ export type {
   Challenge,
   ChallengeCadence,
   ChallengeDifficulty,
+  ChallengeGroup,
   ChallengeListItem,
 } from './challenge'
 export type { DocumentGroup, LearningDocument, LearningDocumentListItem } from './document'

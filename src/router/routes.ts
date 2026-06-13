@@ -68,13 +68,13 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '学习文档' },
   },
   {
-    path: '/document/:slug',
+    path: '/document/:groupSlug/:slug',
     name: 'document-detail',
     component: () => import('@/views/DocumentDetailView.vue'),
     meta: { title: '学习文档' },
   },
   {
-    path: '/challenge/:slug',
+    path: '/challenge/:groupSlug/:slug',
     name: 'challenge-detail',
     component: () => import('@/views/ChallengeDetailView.vue'),
     meta: { title: '题目详情' },

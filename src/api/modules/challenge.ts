@@ -1,12 +1,14 @@
 import { apiRequest } from '@/api/client'
-import type { Challenge, ChallengeListItem } from '@/types'
+import type { Challenge, ChallengeGroup } from '@/types'
 
 export const challengeApi = {
   getChallengeList() {
-    return apiRequest<ChallengeListItem[]>('/api/challenges')
+    return apiRequest<ChallengeGroup[]>('/api/challenges')
   },
-  getChallengeBySlug(slug: string) {
-    return apiRequest<Challenge>(`/api/challenges/${encodeURIComponent(slug)}`).catch(
+  getChallengeBySlug(groupSlug: string, slug: string) {
+    return apiRequest<Challenge>(
+      `/api/challenges/${encodeURIComponent(groupSlug)}/${encodeURIComponent(slug)}`,
+    ).catch(
       (error: unknown) => {
         if (error instanceof Error && 'status' in error && error.status === 404) return null
         throw error
@@ -14,7 +16,7 @@ export const challengeApi = {
     )
   },
   async getLatestChallenge() {
-    const challenges = await this.getChallengeList()
-    return challenges[0] || null
+    const groups = await this.getChallengeList()
+    return groups.flatMap((group) => group.challenges)[0] || null
   },
 }

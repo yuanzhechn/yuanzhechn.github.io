@@ -1,5 +1,5 @@
 <template>
-  <RouterLink :to="`/challenge/${challenge.slug}`" class="challenge-card">
+  <RouterLink :to="`/challenge/${challenge.groupSlug}/${challenge.slug}`" class="challenge-card">
     <div class="challenge-index">NO. {{ String(challenge.sequence).padStart(2, '0') }}</div>
     <div class="challenge-copy">
       <div class="challenge-meta">

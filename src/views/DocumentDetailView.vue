@@ -42,7 +42,12 @@ const { authenticated, checkSession } = useAdminSession()
 const { pageThemeStyle } = useMarkdownTheme()
 onMounted(async () => {
   await checkSession()
-  try { document.value = await documentApi.getBySlug(String(route.params.slug)) }
+  try {
+    document.value = await documentApi.getBySlug(
+      String(route.params.groupSlug),
+      String(route.params.slug),
+    )
+  }
   catch (reason) { error.value = reason instanceof Error ? reason.message : '加载失败' }
   finally { loading.value = false }
 })
