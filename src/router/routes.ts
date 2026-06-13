@@ -40,8 +40,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/tag/:slug',
     name: 'tag-detail',
-    component: () => import('@/views/BlogListView.vue'),
-    meta: { title: '标签文章' },
+    component: () => import('@/views/TagContentView.vue'),
+    meta: { title: '标签内容' },
   },
   {
     path: '/archives',

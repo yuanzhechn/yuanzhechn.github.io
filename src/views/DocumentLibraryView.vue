@@ -1,5 +1,6 @@
 <template>
-  <DefaultLayout>
+  <BlogLayout>
+    <template #content>
     <main class="document-library">
       <header class="page-heading">
         <p>KNOWLEDGE BASE</p>
@@ -31,13 +32,16 @@
         </article>
       </section>
     </main>
-  </DefaultLayout>
+    </template>
+    <template #sidebar><ContentTaxonomySidebar :show-categories="false" /></template>
+  </BlogLayout>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import DefaultLayout from '@/layouts/DefaultLayout.vue'
+import BlogLayout from '@/layouts/BlogLayout.vue'
+import ContentTaxonomySidebar from '@/components/content/ContentTaxonomySidebar.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import { documentApi } from '@/api/modules/document'
 import type { DocumentGroup } from '@/types'
@@ -53,7 +57,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.document-library { width: min(1040px, 100%); margin: 0 auto; }
+.document-library { width: 100%; }
 .page-heading { margin-bottom: 1.5rem; }
 .page-heading p { color: var(--color-primary); font-size: .72rem; font-weight: 800; }
 .page-heading h1 { margin: .25rem 0; font-size: 1.8rem; }

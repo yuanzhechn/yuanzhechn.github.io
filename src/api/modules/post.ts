@@ -1,5 +1,5 @@
 import { apiRequest } from '@/api/client'
-import type { ArchiveItem, Category, Post, PostListResult, PostQueryParams, Tag } from '@/types'
+import type { ArchiveItem, Category, Post, PostListResult, PostQueryParams, Tag, TagContentResult } from '@/types'
 
 function queryString(params: PostQueryParams): string {
   const search = new URLSearchParams()
@@ -25,6 +25,9 @@ export const blogApi = {
   },
   getTags() {
     return apiRequest<Tag[]>('/api/tags')
+  },
+  getContentByTag(tag: string) {
+    return apiRequest<TagContentResult>(`/api/tags/${encodeURIComponent(tag)}/content`)
   },
   getArchives() {
     return apiRequest<ArchiveItem[]>('/api/archives')

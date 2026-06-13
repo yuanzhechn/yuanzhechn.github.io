@@ -1,5 +1,6 @@
 <template>
-  <DefaultLayout>
+  <BlogLayout>
+    <template #content>
     <section class="challenge-page">
       <header class="challenge-header">
         <div>
@@ -34,12 +35,15 @@
         </section>
       </div>
     </section>
-  </DefaultLayout>
+    </template>
+    <template #sidebar><ContentTaxonomySidebar :show-categories="false" /></template>
+  </BlogLayout>
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import DefaultLayout from '@/layouts/DefaultLayout.vue'
+import BlogLayout from '@/layouts/BlogLayout.vue'
+import ContentTaxonomySidebar from '@/components/content/ContentTaxonomySidebar.vue'
 import ChallengeCard from '@/components/challenge/ChallengeCard.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
@@ -50,7 +54,7 @@ onMounted(() => challengeStore.fetchChallenges())
 </script>
 
 <style scoped>
-.challenge-page { max-width: 920px; margin: 0 auto; }
+.challenge-page { width: 100%; }
 .challenge-header { display: flex; align-items: end; justify-content: space-between; gap: var(--spacing-lg); padding: var(--spacing-lg) 0; border-bottom: 1px solid var(--color-border); }
 .challenge-header p { margin-bottom: .35rem; color: var(--color-primary); font-size: .76rem; font-weight: 800; }
 .challenge-header h1 { font-size: 2rem; }

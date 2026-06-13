@@ -11,6 +11,7 @@ export type {
   ChallengeListItem,
 } from './challenge'
 export type { DocumentGroup, LearningDocument, LearningDocumentListItem } from './document'
+export type { TagContentResult } from './tagContent'
 
 import type { PostListItem } from './post'
 
