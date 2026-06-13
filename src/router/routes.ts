@@ -74,6 +74,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '关于' },
   },
   {
+    path: '/admin',
+    name: 'admin-publish',
+    component: () => import('@/views/AdminPublishView.vue'),
+    meta: { title: '内容发布' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue'),

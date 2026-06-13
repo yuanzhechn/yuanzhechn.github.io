@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { mockApi } from '@/api'
+import { blogApi } from '@/api'
 import type { Tag } from '@/types'
 
 export const useTagStore = defineStore('tag', () => {
@@ -11,7 +11,7 @@ export const useTagStore = defineStore('tag', () => {
     if (tags.value.length > 0) return
     loading.value = true
     try {
-      tags.value = await mockApi.getTags()
+      tags.value = await blogApi.getTags()
     } finally {
       loading.value = false
     }

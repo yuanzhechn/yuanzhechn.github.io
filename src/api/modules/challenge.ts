@@ -1,17 +1,20 @@
-import { getChallengeBySlug, getChallengeList, getLatestChallenge } from '@/content/challenges'
-
-function delay<T>(data: T, ms = 120): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(data), ms))
-}
+import { apiRequest } from '@/api/client'
+import type { Challenge, ChallengeListItem } from '@/types'
 
 export const challengeApi = {
-  async getChallengeList() {
-    return delay(getChallengeList())
+  getChallengeList() {
+    return apiRequest<ChallengeListItem[]>('/api/challenges')
   },
-  async getChallengeBySlug(slug: string) {
-    return delay(getChallengeBySlug(slug))
+  getChallengeBySlug(slug: string) {
+    return apiRequest<Challenge>(`/api/challenges/${encodeURIComponent(slug)}`).catch(
+      (error: unknown) => {
+        if (error instanceof Error && 'status' in error && error.status === 404) return null
+        throw error
+      },
+    )
   },
   async getLatestChallenge() {
-    return delay(getLatestChallenge())
+    const challenges = await this.getChallengeList()
+    return challenges[0] || null
   },
 }

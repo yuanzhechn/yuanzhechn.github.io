@@ -16,6 +16,7 @@
         </RouterLink>
       </nav>
       <div class="header-actions">
+        <RouterLink to="/admin" class="admin-entry" title="内容发布">发布</RouterLink>
         <button
           class="theme-toggle"
           @click="appStore.toggleTheme"
@@ -109,6 +110,18 @@ const navLinks = [
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+}
+
+.admin-entry {
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.admin-entry:hover,
+.admin-entry.router-link-active {
+  color: var(--color-primary);
 }
 
 .theme-toggle {

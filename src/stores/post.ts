@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { mockApi } from '@/api'
+import { blogApi } from '@/api'
 import type { Post, PostListItem, PostQueryParams } from '@/types'
 
 export const usePostStore = defineStore('post', () => {
@@ -20,7 +20,7 @@ export const usePostStore = defineStore('post', () => {
     loading.value = true
     error.value = null
     try {
-      const result = await mockApi.getPostList(params)
+      const result = await blogApi.getPostList(params)
       posts.value = result.list
       total.value = result.total
       page.value = result.page
@@ -37,7 +37,7 @@ export const usePostStore = defineStore('post', () => {
     error.value = null
     currentPost.value = null
     try {
-      const post = await mockApi.getPostBySlug(slug)
+      const post = await blogApi.getPostBySlug(slug)
       currentPost.value = post
       if (!post) error.value = '文章不存在'
     } catch (e) {

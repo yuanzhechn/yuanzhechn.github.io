@@ -14,7 +14,16 @@
               <h1 class="post-title">{{ postStore.currentPost.title }}</h1>
               <PostMeta :post="postStore.currentPost" />
             </div>
-            <MarkdownThemePicker />
+            <div class="post-actions">
+              <RouterLink
+                v-if="authenticated"
+                class="edit-link"
+                :to="{ name: 'admin-publish', query: { edit: postStore.currentPost.slug } }"
+              >
+                编辑文章
+              </RouterLink>
+              <MarkdownThemePicker />
+            </div>
           </div>
         </header>
         <div v-if="toc.length > 0" class="post-toc-mobile">
@@ -44,8 +53,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import MarkdownThemePicker from '@/components/common/MarkdownThemePicker.vue'
@@ -57,11 +66,13 @@ import ErrorState from '@/components/ui/ErrorState.vue'
 import { usePostStore } from '@/stores/post'
 import { useMarkdownTheme } from '@/composables/useMarkdownTheme'
 import { extractToc } from '@/utils/markdown'
+import { useAdminSession } from '@/composables/useAdminSession'
 
 const route = useRoute()
 const postStore = usePostStore()
 const markdownRenderer = ref<InstanceType<typeof MarkdownRenderer>>()
 const { pageThemeStyle } = useMarkdownTheme()
+const { authenticated, checkSession } = useAdminSession()
 
 const toc = computed(() => {
   if (!postStore.currentPost) return []
@@ -81,6 +92,7 @@ function scrollToHeading(id: string) {
 }
 
 watch(() => route.params.slug, loadPost, { immediate: true })
+onMounted(() => checkSession())
 </script>
 
 <style scoped>
@@ -104,6 +116,26 @@ watch(() => route.params.slug, loadPost, { immediate: true })
   font-weight: 700;
   line-height: 1.4;
   margin-bottom: var(--spacing-md);
+}
+
+.post-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.edit-link {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--reader-surface) 92%, transparent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .post-body {

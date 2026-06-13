@@ -1,8 +1,5 @@
 <template>
   <RouterLink :to="`/post/${post.slug}`" class="post-card">
-    <div v-if="post.coverImage" class="post-cover">
-      <img :src="post.coverImage" :alt="post.title" />
-    </div>
     <div class="post-body">
       <h2 class="post-title">
         <span v-if="post.isTop" class="top-badge">置顶</span>
@@ -44,17 +41,6 @@ defineProps<{
 .post-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-}
-
-.post-cover {
-  width: 200px;
-  flex-shrink: 0;
-}
-
-.post-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .post-body {
@@ -109,14 +95,4 @@ defineProps<{
   color: var(--color-primary);
 }
 
-@media (max-width: 640px) {
-  .post-card {
-    flex-direction: column;
-  }
-
-  .post-cover {
-    width: 100%;
-    height: 160px;
-  }
-}
 </style>

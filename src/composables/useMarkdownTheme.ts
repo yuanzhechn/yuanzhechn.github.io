@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { getMarkdownTheme, markdownThemes, type MarkdownThemeId } from '@/data/markdownThemes'
 
 const storageKey = 'blog-markdown-theme'
+const headingNumbersStorageKey = 'blog-markdown-heading-numbers'
 
 function readSavedTheme(): MarkdownThemeId {
   const saved = localStorage.getItem(storageKey) as MarkdownThemeId | null
@@ -9,6 +10,7 @@ function readSavedTheme(): MarkdownThemeId {
 }
 
 const selectedThemeId = ref<MarkdownThemeId>(readSavedTheme())
+const headingNumbersEnabled = ref(localStorage.getItem(headingNumbersStorageKey) === 'true')
 
 export function useMarkdownTheme() {
   const selectedTheme = computed(() => getMarkdownTheme(selectedThemeId.value))
@@ -37,11 +39,23 @@ export function useMarkdownTheme() {
     localStorage.setItem(storageKey, themeId)
   }
 
+  function setHeadingNumbers(enabled: boolean) {
+    headingNumbersEnabled.value = enabled
+    localStorage.setItem(headingNumbersStorageKey, String(enabled))
+  }
+
+  function toggleHeadingNumbers() {
+    setHeadingNumbers(!headingNumbersEnabled.value)
+  }
+
   return {
     markdownThemes,
     selectedTheme,
     selectedThemeId,
     pageThemeStyle,
+    headingNumbersEnabled,
     setMarkdownTheme,
+    setHeadingNumbers,
+    toggleHeadingNumbers,
   }
 }

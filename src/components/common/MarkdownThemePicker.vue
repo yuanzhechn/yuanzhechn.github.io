@@ -31,6 +31,23 @@
           <button type="button" class="close-button" title="关闭" @click="open = false">×</button>
         </div>
 
+        <div class="reader-setting">
+          <span class="setting-copy">
+            <strong>标题编号</strong>
+            <small>为正文标题显示 1、1.1 等层级编号</small>
+          </span>
+          <button
+            type="button"
+            class="setting-switch"
+            role="switch"
+            :aria-checked="headingNumbersEnabled"
+            :title="headingNumbersEnabled ? '关闭标题编号' : '开启标题编号'"
+            @click="toggleHeadingNumbers"
+          >
+            <span />
+          </button>
+        </div>
+
         <div v-for="group in themeGroups" :key="group.mode" class="theme-group">
           <div class="group-label">
             <span>{{ group.mode === 'light' ? '浅色主题' : '深色主题' }}</span>
@@ -80,7 +97,14 @@ import type { MarkdownThemeId } from '@/data/markdownThemes'
 
 const pickerRoot = ref<HTMLElement>()
 const open = ref(false)
-const { markdownThemes, selectedTheme, selectedThemeId, setMarkdownTheme } = useMarkdownTheme()
+const {
+  markdownThemes,
+  selectedTheme,
+  selectedThemeId,
+  headingNumbersEnabled,
+  setMarkdownTheme,
+  toggleHeadingNumbers,
+} = useMarkdownTheme()
 
 const themeGroups = computed(() =>
   (['light', 'dark'] as const).map((mode) => ({
@@ -240,6 +264,63 @@ onBeforeUnmount(() => {
 
 .theme-group {
   margin-top: 1rem;
+}
+
+.reader-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  padding: 0.72rem 0.78rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.setting-copy {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.setting-copy strong {
+  font-size: 0.82rem;
+}
+
+.setting-copy small {
+  color: var(--color-text-secondary);
+  font-size: 0.68rem;
+}
+
+.setting-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 22px;
+  padding: 2px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--color-border);
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.setting-switch span {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease;
+}
+
+.setting-switch[aria-checked='true'] {
+  background: var(--color-primary);
+}
+
+.setting-switch[aria-checked='true'] span {
+  transform: translateX(18px);
 }
 
 .group-label {

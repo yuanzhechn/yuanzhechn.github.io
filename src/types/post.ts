@@ -4,10 +4,8 @@ export interface Post {
   slug: string
   excerpt: string
   content: string
-  coverImage: string
   category: string
   tags: string[]
-  author: string
   createdAt: string
   updatedAt: string
   isPublished: boolean
@@ -22,7 +20,6 @@ export interface PostListItem {
   title: string
   slug: string
   excerpt: string
-  coverImage: string
   category: string
   tags: string[]
   createdAt: string

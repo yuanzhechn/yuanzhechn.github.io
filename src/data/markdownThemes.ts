@@ -195,6 +195,36 @@ const compatibilityCss = `
   --bg-style: none;
 }
 
+#write {
+  --autonum-h1: "";
+  --autonum-h2: "";
+  --autonum-h3: "";
+  --autonum-h4: "";
+  --autonum-h5: "";
+  --autonum-h6: "";
+  --autonum-h1toc: "";
+  --autonum-h2toc: "";
+  --autonum-h3toc: "";
+  --autonum-h4toc: "";
+  --autonum-h5toc: "";
+  --autonum-h6toc: "";
+}
+
+#write[data-heading-numbers="true"] {
+  --autonum-h1: counter(h1) ". ";
+  --autonum-h2: counter(h1) "." counter(h2) ". ";
+  --autonum-h3: counter(h1) "." counter(h2) "." counter(h3) ". ";
+  --autonum-h4: counter(h1) "." counter(h2) "." counter(h3) "." counter(h4) ". ";
+  --autonum-h5: counter(h1) "." counter(h2) "." counter(h3) "." counter(h4) "." counter(h5) ". ";
+  --autonum-h6: counter(h1) "." counter(h2) "." counter(h3) "." counter(h4) "." counter(h5) "." counter(h6) ". ";
+  --autonum-h1toc: counter(h1toc) ". ";
+  --autonum-h2toc: counter(h1toc) "." counter(h2toc) ". ";
+  --autonum-h3toc: counter(h1toc) "." counter(h2toc) "." counter(h3toc) ". ";
+  --autonum-h4toc: counter(h1toc) "." counter(h2toc) "." counter(h3toc) "." counter(h4toc) ". ";
+  --autonum-h5toc: counter(h1toc) "." counter(h2toc) "." counter(h3toc) "." counter(h4toc) "." counter(h5toc) ". ";
+  --autonum-h6toc: counter(h1toc) "." counter(h2toc) "." counter(h3toc) "." counter(h4toc) "." counter(h5toc) "." counter(h6toc) ". ";
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }

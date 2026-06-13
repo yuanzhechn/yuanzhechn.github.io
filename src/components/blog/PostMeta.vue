@@ -1,10 +1,6 @@
 <template>
   <div class="post-meta">
     <span class="meta-item">
-      <span class="meta-label">作者</span>
-      <span class="meta-value">{{ post.author }}</span>
-    </span>
-    <span class="meta-item">
       <span class="meta-label">发布于</span>
       <time class="meta-value" :datetime="post.createdAt">{{ formatDate(post.createdAt) }}</time>
     </span>

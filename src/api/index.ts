@@ -1,1 +1,1 @@
-export { mockApi } from './modules/post'
+export { blogApi } from './modules/post'

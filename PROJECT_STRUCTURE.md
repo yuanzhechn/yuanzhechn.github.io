@@ -2,43 +2,17 @@
 
 ```text
 my-blog/
-├─ content/                                      # Markdown 内容库
-│  ├─ README.md                                  # 说明文章和题目的添加方式
-│  ├─ content-entry.schema.json                  # 校验每个 Markdown 同名 JSON 的字段结构
-│  ├─ posts/                                     # 博客文章目录
-│  │  ├─ backend/
-│  │  │  ├─ docker-compose-production.md         # Docker Compose 生产实践正文
-│  │  │  ├─ docker-compose-production.json       # 该文章的分类、标签和归档元数据
-│  │  │  ├─ nodejs-microservice-practice.md      # Node.js 微服务实践正文
-│  │  │  └─ nodejs-microservice-practice.json    # 该文章的分类、标签和归档元数据
-│  │  ├─ frontend/
-│  │  │  ├─ build-blog-with-vue3-typescript.md   # Vue 3 与 TypeScript 博客搭建文章
-│  │  │  ├─ css-container-queries-practice.md    # CSS 容器查询文章
-│  │  │  ├─ sorting-algorithm-visualization.md   # 排序算法可视化文章
-│  │  │  └─ vite8-new-features.md                # Vite 8 新特性文章
-│  │  ├─ guides/
-│  │  │  ├─ content-management-workflow.md       # 博客内容管理流程说明
-│  │  │  └─ phycat-theme-guide.md                # PhyCat Markdown 主题展示文章
-│  │  ├─ life/
-│  │  │  └─ 2024-year-review.md                  # 年度总结文章
-│  │  └─ tools/
-│  │     └─ git-advanced-tips.md                 # Git 进阶技巧文章
-│  └─ challenges/                                # “每期一题”内容目录
-│     └─ 2026/
-│        ├─ week-01-two-sum.md                   # 第一期两数之和题目正文
-│        ├─ week-01-two-sum.json                 # 第一期题目元数据
-│        ├─ week-02-debounce.md                  # 第二期防抖函数题目正文
-│        └─ week-02-debounce.json                # 第二期题目元数据
-│
 ├─ public/
 │  └─ favicon.ico                               # 浏览器标签页图标
 │
 ├─ src/
 │  ├─ api/                                      # 页面使用的数据访问接口
+│  │  ├─ client.ts                              # 封装后端地址、Cookie 和错误处理
 │  │  ├─ index.ts                               # 统一导出文章 API
 │  │  └─ modules/
-│  │     ├─ post.ts                             # 封装文章、分类、标签和归档查询
-│  │     └─ challenge.ts                        # 封装题目列表和题目详情查询
+│  │     ├─ admin.ts                            # 管理员登录、退出和上传接口
+│  │     ├─ post.ts                             # 调用后端文章、分类、标签和归档 API
+│  │     └─ challenge.ts                        # 调用后端训练计划 API
 │  │
 │  ├─ assets/
 │  │  ├─ markdown-themes/                       # Markdown 渲染使用的 Typora 主题
@@ -94,10 +68,6 @@ my-blog/
 │  │  ├─ useMarkdownTheme.ts                   # 管理 Markdown 主题选择和本地持久化
 │  │  └─ useScrollToTop.ts                     # 管理路由切换后的页面滚动位置
 │  │
-│  ├─ content/
-│  │  ├─ index.ts                              # 将文章 Markdown 转换为文章、分类和标签数据
-│  │  └─ challenges.ts                         # 将题目 Markdown 转换为题目数据
-│  │
 │  ├─ data/
 │  │  ├─ favorites.ts                          # 配置收藏网站、分组和网站图标
 │  │  └─ markdownThemes.ts                     # 注册主题并提供网页兼容样式
@@ -134,6 +104,7 @@ my-blog/
 │  │
 │  ├─ views/
 │  │  ├─ AboutView.vue                         # 关于页面
+│  │  ├─ AdminPublishView.vue                   # 管理员登录和内容上传页面
 │  │  ├─ ArchiveView.vue                       # 文章归档页面
 │  │  ├─ BlogDetailView.vue                    # 博客文章详情页面
 │  │  ├─ BlogListView.vue                      # 文章列表及筛选结果页面
@@ -160,5 +131,5 @@ my-blog/
 ├─ tsconfig.app.json                           # 配置前端应用 TypeScript 编译
 ├─ tsconfig.json                               # 汇总 TypeScript 配置
 ├─ tsconfig.node.json                          # 配置 Node 和 Vite 文件的 TypeScript 编译
-└─ vite.config.ts                              # 配置 Vite、内容扫描和虚拟 Markdown 模块
+└─ vite.config.ts                              # 配置 Vue、开发工具和路径别名
 ```

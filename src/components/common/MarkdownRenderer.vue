@@ -14,7 +14,7 @@ const props = defineProps<{
 
 const host = ref<HTMLElement>()
 const html = computed(() => renderMarkdown(props.content))
-const { selectedThemeId } = useMarkdownTheme()
+const { selectedThemeId, headingNumbersEnabled } = useMarkdownTheme()
 
 let shadowRoot: ShadowRoot | null = null
 let styleElement: HTMLStyleElement | null = null
@@ -41,6 +41,7 @@ function updateTheme() {
 
   styleElement.textContent = getMarkdownThemeCss(selectedThemeId.value)
   articleElement.dataset.markdownTheme = selectedThemeId.value
+  articleElement.dataset.headingNumbers = String(headingNumbersEnabled.value)
 }
 
 function updateHtml() {
@@ -73,6 +74,7 @@ watch(
   { immediate: true, flush: 'post' },
 )
 watch(selectedThemeId, updateTheme)
+watch(headingNumbersEnabled, updateTheme)
 watch(html, updateHtml)
 
 onMounted(() => window.addEventListener('hashchange', scrollToCurrentHash))

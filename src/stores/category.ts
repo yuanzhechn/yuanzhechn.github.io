@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { mockApi } from '@/api'
+import { blogApi } from '@/api'
 import type { Category } from '@/types'
 
 export const useCategoryStore = defineStore('category', () => {
@@ -11,7 +11,7 @@ export const useCategoryStore = defineStore('category', () => {
     if (categories.value.length > 0) return
     loading.value = true
     try {
-      categories.value = await mockApi.getCategories()
+      categories.value = await blogApi.getCategories()
     } finally {
       loading.value = false
     }

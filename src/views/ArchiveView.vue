@@ -32,7 +32,7 @@ import { RouterLink } from 'vue-router'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import { mockApi } from '@/api'
+import { blogApi } from '@/api'
 import type { ArchiveItem } from '@/types'
 import { formatDate } from '@/utils/date'
 
@@ -42,7 +42,7 @@ const loading = ref(false)
 onMounted(async () => {
   loading.value = true
   try {
-    archives.value = await mockApi.getArchives()
+    archives.value = await blogApi.getArchives()
   } finally {
     loading.value = false
   }

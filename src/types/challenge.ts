@@ -8,7 +8,6 @@ export interface Challenge {
   excerpt: string
   content: string
   tags: string[]
-  author: string
   publishedAt: string
   dueAt: string
   difficulty: ChallengeDifficulty
