@@ -155,7 +155,7 @@ onMounted(async () => { await Promise.all([loadSites(), checkSession()]) })
 </script>
 
 <style scoped>
-.favorites-launchpad { display:grid; grid-template-rows:auto minmax(0,1fr); height:100vh; overflow:hidden; background:linear-gradient(125deg,rgba(255,255,255,.5) 0 12%,transparent 12%),linear-gradient(35deg,rgba(68,212,146,.24) 0 26%,transparent 26%),linear-gradient(155deg,transparent 0 42%,rgba(32,129,226,.28) 42% 64%,transparent 64%),linear-gradient(215deg,#dcecff 0%,#b9d9ef 34%,#d5efe5 68%,#f4f8ff 100%); }
+.favorites-launchpad { display:grid; grid-template-rows:auto minmax(0,1fr); height:100vh; overflow:hidden; background:linear-gradient(125deg,rgb(255 255 255 / 5%) 0 12%,transparent 12%),linear-gradient(35deg,rgb(47 184 140 / 12%) 0 26%,transparent 26%),linear-gradient(155deg,transparent 0 42%,rgb(37 99 235 / 16%) 42% 64%,transparent 64%),linear-gradient(215deg,#101923 0%,#13283a 38%,#17362f 72%,#0c1520 100%); }
 .workspace { position:relative; display:grid; grid-template-columns:minmax(0,1fr); min-height:0; }
 .editing .workspace { grid-template-columns:minmax(0,3fr) minmax(360px,2fr); }
 .desktop-preview { min-width:0; min-height:0; padding:.65rem; overflow:auto; }
@@ -182,7 +182,7 @@ onMounted(async () => { await Promise.all([loadSites(), checkSession()]) })
 .save-button { color:#fff; background:var(--color-primary); }
 .message { padding:.6rem .7rem; border-radius:var(--radius-sm); }
 .error { color:#b42318; background:#fef3f2; }
-[data-theme='dark'] .favorites-launchpad { background:radial-gradient(circle at 18% 20%,rgba(255,255,255,.08),transparent 18%),radial-gradient(circle at 78% 22%,rgba(14,165,233,.16),transparent 20%),radial-gradient(circle at 28% 88%,rgba(79,192,141,.12),transparent 24%),linear-gradient(145deg,#102033 0%,#0f1b2d 48%,#0b1726 100%); }
+[data-theme='dark'] .favorites-launchpad { background:linear-gradient(125deg,rgb(255 255 255 / 4%) 0 12%,transparent 12%),linear-gradient(35deg,rgb(47 184 140 / 10%) 0 26%,transparent 26%),linear-gradient(155deg,transparent 0 42%,rgb(37 99 235 / 14%) 42% 64%,transparent 64%),linear-gradient(215deg,#080d14 0%,#0d1b28 40%,#112a25 72%,#070c13 100%); }
 @media (max-width:900px) { .editing .workspace { grid-template-columns:1fr; grid-template-rows:minmax(45vh,1fr) auto; overflow:auto; } .favorites-launchpad.editing { height:auto; min-height:100vh; overflow:visible; } .favorites-editor { max-height:none; border-top:1px solid var(--color-border); border-left:0; } }
 @media (max-width:640px) { .favorites-launchpad { height:auto; min-height:100vh; overflow:visible; } .workspace { min-height:calc(100vh - var(--header-height)); } .desktop-preview { min-height:50vh; } .site-fields { grid-template-columns:1fr; } .wide { grid-column:auto; } }
 </style>

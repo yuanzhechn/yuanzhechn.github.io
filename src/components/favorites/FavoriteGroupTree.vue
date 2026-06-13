@@ -51,10 +51,10 @@ const totalSites = computed(() => props.sites.length)
   width: 100%;
   margin-bottom: .85rem;
   padding: .85rem;
-  border: 1px solid rgb(255 255 255 / 52%);
+  border: 1px solid rgb(255 255 255 / 16%);
   border-radius: var(--radius-md);
-  background: rgb(255 255 255 / 20%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 35%);
+  background: rgb(8 18 28 / 42%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 12px 28px rgb(0 0 0 / 12%);
   backdrop-filter: blur(10px);
   break-inside: avoid;
 }
@@ -64,14 +64,17 @@ const totalSites = computed(() => props.sites.length)
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: .75rem;
-  color: #0f2942;
+  color: #f3f8fc;
 }
 .group-tree h2 {
+  color: #fff;
   font-size: .95rem;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 45%);
 }
 .group-tree header span {
+  color: #fff;
   font-size: .68rem;
-  opacity: .7;
+  opacity: .82;
 }
 .site-grid {
   display: grid;
