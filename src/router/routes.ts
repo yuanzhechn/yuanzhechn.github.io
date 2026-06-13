@@ -62,6 +62,18 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '每期一题' },
   },
   {
+    path: '/documents',
+    name: 'documents',
+    component: () => import('@/views/DocumentLibraryView.vue'),
+    meta: { title: '学习文档' },
+  },
+  {
+    path: '/document/:slug',
+    name: 'document-detail',
+    component: () => import('@/views/DocumentDetailView.vue'),
+    meta: { title: '学习文档' },
+  },
+  {
     path: '/challenge/:slug',
     name: 'challenge-detail',
     component: () => import('@/views/ChallengeDetailView.vue'),

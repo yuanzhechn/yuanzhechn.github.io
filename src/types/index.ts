@@ -9,6 +9,7 @@ export type {
   ChallengeDifficulty,
   ChallengeListItem,
 } from './challenge'
+export type { DocumentGroup, LearningDocument, LearningDocumentListItem } from './document'
 
 import type { PostListItem } from './post'
 

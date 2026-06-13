@@ -48,6 +48,7 @@
               <select v-model="form.collection" :disabled="Boolean(editingSlug)">
                 <option value="posts">博客文章</option>
                 <option value="challenges">训练计划</option>
+                <option value="documents">学习文档</option>
               </select>
             </label>
             <label>
@@ -62,7 +63,29 @@
               <span>分类</span>
               <input v-model.trim="form.category" required placeholder="frontend" />
             </label>
-            <template v-else>
+            <template v-if="form.collection === 'documents'">
+              <label>
+                <span>文档集名称</span>
+                <input
+                  v-model.trim="form.groupTitle"
+                  list="document-group-titles"
+                  placeholder="例如：数据库学习"
+                  @change="selectDocumentGroup"
+                />
+                <datalist id="document-group-titles">
+                  <option v-for="group in documentGroups" :key="group.slug" :value="group.title" />
+                </datalist>
+              </label>
+              <label>
+                <span>文档集 Slug</span>
+                <input v-model.trim="form.groupSlug" placeholder="database-learning" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" />
+              </label>
+              <label>
+                <span>章节顺序</span>
+                <input v-model.number="form.order" type="number" min="1" />
+              </label>
+            </template>
+            <template v-if="form.collection === 'challenges'">
               <label>
                 <span>难度</span>
                 <select v-model="form.difficulty">
@@ -168,6 +191,8 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import { adminApi, type AdminCollection, type EditableContent } from '@/api/modules/admin'
 import { useAdminSession } from '@/composables/useAdminSession'
 import { useTagStore } from '@/stores/tag'
+import { documentApi } from '@/api/modules/document'
+import type { DocumentGroup } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -181,12 +206,16 @@ const editorMode = ref<'write' | 'preview'>('write')
 const editingSlug = ref('')
 const tagDraft = ref('')
 const tagInputElement = ref<HTMLInputElement>()
+const documentGroups = ref<DocumentGroup[]>([])
 
 const blankForm = (): EditableContent => ({
   collection: 'posts',
   title: '',
   slug: '',
   category: '',
+  groupSlug: '',
+  groupTitle: '',
+  order: 1,
   tags: [],
   excerpt: '',
   isTop: false,
@@ -236,15 +265,24 @@ function focusTagInput() {
   tagInputElement.value?.focus()
 }
 
+function selectDocumentGroup() {
+  const existing = documentGroups.value.find((group) => group.title === form.groupTitle)
+  if (existing) form.groupSlug = existing.slug
+}
+
 function applyContent(content: EditableContent) {
   Object.assign(form, blankForm(), content)
 }
 
 async function loadEditTarget() {
   const slug = typeof route.query.edit === 'string' ? route.query.edit : ''
+  const requestedCollection =
+    route.query.collection === 'documents' || route.query.collection === 'challenges'
+      ? route.query.collection
+      : 'posts'
   if (!slug || !authenticated.value) return
   try {
-    applyContent(await adminApi.getContent('posts', slug))
+    applyContent(await adminApi.getContent(requestedCollection, slug))
     editingSlug.value = slug
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '无法读取文章'
@@ -304,7 +342,8 @@ async function save() {
 }
 
 onMounted(async () => {
-  await tagStore.fetchTags()
+  const [, groups] = await Promise.all([tagStore.fetchTags(), documentApi.listGroups()])
+  documentGroups.value = groups
   await checkSession()
   await loadEditTarget()
 })

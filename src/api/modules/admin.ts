@@ -1,13 +1,16 @@
 import { apiRequest } from '@/api/client'
 import type { ChallengeCadence, ChallengeDifficulty } from '@/types'
 
-export type AdminCollection = 'posts' | 'challenges'
+export type AdminCollection = 'posts' | 'challenges' | 'documents'
 
 export interface EditableContent {
   collection: AdminCollection
   title: string
   slug: string
   category?: string
+  groupSlug?: string
+  groupTitle?: string
+  order?: number
   tags: string[]
   excerpt?: string
   isTop?: boolean
