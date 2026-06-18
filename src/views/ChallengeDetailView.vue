@@ -23,6 +23,14 @@
             >
               编辑题目
             </RouterLink>
+            <button
+              v-if="authenticated"
+              type="button"
+              :disabled="deleting"
+              @click="deleteCurrentChallenge"
+            >
+              {{ deleting ? 'Deleting...' : 'Delete' }}
+            </button>
             <MarkdownThemePicker />
           </div>
         </header>
@@ -47,7 +55,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import MarkdownThemePicker from '@/components/common/MarkdownThemePicker.vue'
@@ -57,10 +65,13 @@ import { useChallengeStore } from '@/stores/challenge'
 import { useMarkdownTheme } from '@/composables/useMarkdownTheme'
 import { formatDate } from '@/utils/date'
 import { useAdminSession } from '@/composables/useAdminSession'
+import { adminApi } from '@/api/modules/admin'
 
 const route = useRoute()
+const router = useRouter()
 const challengeStore = useChallengeStore()
 const markdownRenderer = ref<InstanceType<typeof MarkdownRenderer>>()
+const deleting = ref(false)
 const { pageThemeStyle } = useMarkdownTheme()
 const { authenticated, checkSession } = useAdminSession()
 
@@ -75,6 +86,20 @@ function loadChallenge() {
   const groupSlug = Array.isArray(groupParam) ? groupParam.join('/') : groupParam
   const slug = Array.isArray(slugParam) ? slugParam.join('/') : slugParam
   if (groupSlug && slug) challengeStore.fetchChallengeBySlug(groupSlug, slug)
+}
+
+async function deleteCurrentChallenge() {
+  const challenge = challengeStore.currentChallenge
+  if (!challenge) return
+  const confirmed = window.confirm(`确定删除《${challenge.title}》吗？这个操作会同时删除后端 Markdown 和资源文件。`)
+  if (!confirmed) return
+  deleting.value = true
+  try {
+    await adminApi.deleteContent('challenges', challenge.slug)
+    await router.push('/challenges')
+  } finally {
+    deleting.value = false
+  }
 }
 
 watch(() => [route.params.groupSlug, route.params.slug], loadChallenge, { immediate: true })
@@ -117,7 +142,8 @@ onMounted(() => checkSession())
   gap: var(--spacing-sm);
 }
 
-.challenge-actions > a {
+.challenge-actions > a,
+.challenge-actions > button {
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -125,6 +151,17 @@ onMounted(() => checkSession())
   font-size: 0.82rem;
   font-weight: 700;
   text-decoration: none;
+}
+
+.challenge-actions > button {
+  color: #b42318;
+  background: transparent;
+  cursor: pointer;
+}
+
+.challenge-actions > button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .challenge-sidebar {

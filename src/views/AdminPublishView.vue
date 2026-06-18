@@ -40,6 +40,10 @@
               导入 Markdown
               <input type="file" accept=".md,text/markdown,text/plain" @change="importMarkdown" />
             </label>
+            <label class="file-button">
+              导入 Markdown 文件夹
+              <input type="file" webkitdirectory directory multiple @change="importMarkdownFolder" />
+            </label>
           </div>
 
           <div class="field-grid">
@@ -201,6 +205,9 @@
 
         <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
         <p v-if="successMessage" class="form-success">{{ successMessage }}</p>
+        <p v-if="pendingAssetFiles.length" class="asset-hint">
+          已暂存 {{ pendingAssetFiles.length }} 个资源文件，保存后会上传到后端。
+        </p>
         <footer class="save-bar">
           <span>{{ editingSlug ? `正在编辑 ${editingSlug}` : '新内容' }}</span>
           <button type="submit" class="primary-button" :disabled="submitting">
@@ -219,6 +226,7 @@ import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import { adminApi, type AdminCollection, type EditableContent } from '@/api/modules/admin'
+import { apiBaseUrl } from '@/api/client'
 import { useAdminSession } from '@/composables/useAdminSession'
 import { useTagStore } from '@/stores/tag'
 import { documentApi } from '@/api/modules/document'
@@ -241,6 +249,7 @@ const documentGroups = ref<DocumentGroup[]>([])
 const challengeGroups = ref<ChallengeGroup[]>([])
 const selectedDocumentGroupSlug = ref('')
 const selectedChallengeGroupSlug = ref('')
+const pendingAssetFiles = ref<Array<{ file: File; relativePath: string }>>([])
 
 const blankForm = (): EditableContent => ({
   collection: 'posts',
@@ -372,6 +381,7 @@ function startNew() {
   applyContent(blankForm())
   selectedDocumentGroupSlug.value = ''
   selectedChallengeGroupSlug.value = ''
+  pendingAssetFiles.value = []
   errorMessage.value = ''
   successMessage.value = ''
   void router.replace({ name: 'admin-publish' })
@@ -382,6 +392,89 @@ async function importMarkdown(event: Event) {
   if (!file) return
   form.content = await file.text()
   if (!form.slug) form.slug = file.name.replace(/\.md$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  pendingAssetFiles.value = []
+}
+
+const imageExtensions = new Set(['.avif', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
+
+function fileExtension(path: string) {
+  const index = path.lastIndexOf('.')
+  return index >= 0 ? path.slice(index).toLowerCase() : ''
+}
+
+function normalizeBrowserPath(path: string) {
+  return path.replace(/\\/g, '/').replace(/^\/+/, '')
+}
+
+function relativeToMarkdown(path: string, markdownDirectory: string) {
+  const normalizedPath = normalizeBrowserPath(path)
+  return markdownDirectory && normalizedPath.startsWith(`${markdownDirectory}/`)
+    ? normalizedPath.slice(markdownDirectory.length + 1)
+    : normalizedPath.split('/').pop() || normalizedPath
+}
+
+function assetPublicPrefix(collection: AdminCollection, slug: string, groupSlug?: string) {
+  return collection === 'documents' || collection === 'challenges'
+    ? `${apiBaseUrl}/content-assets/${collection}/${groupSlug}/${slug}/assets`
+    : `${apiBaseUrl}/content-assets/${collection}/${slug}/assets`
+}
+
+function rewriteMarkdownAssetLinks(content: string, assetPathMap: Map<string, string>) {
+  return content.replace(/(!\[[^\]]*]\()([^)#?]+)((?:[?#][^)]*)?\))/g, (match, start, rawPath, suffix) => {
+    const decodedPath = decodeURIComponent(String(rawPath).trim())
+    if (/^(?:[a-z]+:)?\/\//i.test(decodedPath) || decodedPath.startsWith('/') || decodedPath.startsWith('#')) return match
+    const normalizedPath = normalizeBrowserPath(decodedPath).replace(/^\.\//, '')
+    const rewritten = assetPathMap.get(normalizedPath) || assetPathMap.get(normalizedPath.split('/').pop() || '')
+    return rewritten ? `${start}${encodeURI(rewritten)}${suffix}` : match
+  })
+}
+
+async function importMarkdownFolder(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  input.value = ''
+  if (!files.length) return
+
+  const markdownFiles = files.filter((file) => file.name.toLowerCase().endsWith('.md'))
+  if (markdownFiles.length !== 1) {
+    errorMessage.value = markdownFiles.length
+      ? '文件夹里只能放一个 Markdown 正文文件'
+      : '文件夹里没有找到 Markdown 正文文件'
+    return
+  }
+
+  const markdownFile = markdownFiles[0]!
+  const markdownPath = normalizeBrowserPath(markdownFile.webkitRelativePath || markdownFile.name)
+  const markdownDirectory = markdownPath.includes('/') ? markdownPath.slice(0, markdownPath.lastIndexOf('/')) : ''
+  const assets = files
+    .filter((file) => file !== markdownFile && imageExtensions.has(fileExtension(file.name)))
+    .map((file) => ({
+      file,
+      relativePath: relativeToMarkdown(file.webkitRelativePath || file.name, markdownDirectory),
+    }))
+
+  if (!form.slug) {
+    form.slug = markdownFile.name
+      .replace(/\.md$/i, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+  }
+
+  const groupSlug = form.collection === 'posts' ? undefined : form.groupSlug
+  const prefix = assetPublicPrefix(form.collection, form.slug, groupSlug)
+  const assetPathMap = new Map<string, string>()
+  for (const asset of assets) {
+    assetPathMap.set(normalizeBrowserPath(asset.relativePath), `${prefix}/${normalizeBrowserPath(asset.relativePath)}`)
+    assetPathMap.set(asset.file.name, `${prefix}/${normalizeBrowserPath(asset.relativePath)}`)
+  }
+
+  form.content = rewriteMarkdownAssetLinks(await markdownFile.text(), assetPathMap)
+  pendingAssetFiles.value = assets
+  successMessage.value = assets.length
+    ? `已导入 Markdown，并识别到 ${assets.length} 个图片资源。`
+    : '已导入 Markdown，未发现图片资源。'
+  errorMessage.value = ''
 }
 
 async function save() {
@@ -392,6 +485,15 @@ async function save() {
     const result = editingSlug.value
       ? await adminApi.updateContent(form.collection, editingSlug.value, { ...form })
       : await adminApi.createContent(form.collection, { ...form })
+    if (pendingAssetFiles.value.length) {
+      await adminApi.uploadAssets(
+        form.collection,
+        result.slug,
+        pendingAssetFiles.value,
+        form.collection === 'posts' ? undefined : form.groupSlug,
+      )
+      pendingAssetFiles.value = []
+    }
     editingSlug.value = result.slug
     successMessage.value = '保存成功，日期已由服务器自动更新。'
     await router.replace({ query: { edit: result.slug } })

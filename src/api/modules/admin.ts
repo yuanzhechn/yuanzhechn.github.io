@@ -50,4 +50,27 @@ export const adminApi = {
       { method: 'PUT', body: JSON.stringify(input) },
     )
   },
+  deleteContent(collection: AdminCollection, slug: string) {
+    return apiRequest<{ slug: string; collection: AdminCollection }>(
+      `/api/admin/content/${collection}/${encodeURIComponent(slug)}`,
+      { method: 'DELETE' },
+    )
+  },
+  uploadAssets(
+    collection: AdminCollection,
+    slug: string,
+    files: Array<{ file: File; relativePath: string }>,
+    groupSlug?: string,
+  ) {
+    const formData = new FormData()
+    for (const asset of files) {
+      formData.append('relativePath', asset.relativePath)
+      formData.append('files', asset.file, asset.file.name)
+    }
+    const query = groupSlug ? `?groupSlug=${encodeURIComponent(groupSlug)}` : ''
+    return apiRequest<{ saved: string[] }>(
+      `/api/admin/content/${collection}/${encodeURIComponent(slug)}/assets${query}`,
+      { method: 'POST', body: formData },
+    )
+  },
 }

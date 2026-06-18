@@ -5,8 +5,6 @@
 
       <HomeQuickFinder :posts="postStore.posts" />
 
-      <HomeActivityHeatmap :posts="postStore.posts" />
-
       <HomeDashboard
         :categories="featuredCategories"
         :tags="featuredTags"
@@ -38,7 +36,6 @@ import PostList from '@/components/blog/PostList.vue'
 import HomeDashboard from '@/components/home/HomeDashboard.vue'
 import HomeHero from '@/components/home/HomeHero.vue'
 import HomeQuickFinder from '@/components/home/HomeQuickFinder.vue'
-import HomeActivityHeatmap from '@/components/home/HomeActivityHeatmap.vue'
 import HomeChallengeSpotlight from '@/components/home/HomeChallengeSpotlight.vue'
 import { useCategoryStore } from '@/stores/category'
 import { useChallengeStore } from '@/stores/challenge'

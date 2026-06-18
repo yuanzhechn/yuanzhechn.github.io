@@ -3,22 +3,25 @@
     <div class="footer-inner">
       <div class="footer-info">
         <span class="footer-copy">&copy; {{ currentYear }} {{ siteTitle }}</span>
-        <span class="footer-divider">|</span>
-        <span class="footer-tech">Powered by Vue 3 + Vite</span>
+        <span class="footer-divider">/</span>
+        <span class="footer-note">文章、训练计划与学习文档的长期整理处</span>
       </div>
-      <div class="footer-links">
-        <a v-for="link in footerLinks" :key="link.name" :href="link.url" target="_blank" rel="noopener noreferrer" class="footer-link">{{ link.name }}</a>
-      </div>
+      <nav class="footer-links" aria-label="页脚导航">
+        <RouterLink v-for="link in footerLinks" :key="link.name" :to="link.to" class="footer-link">
+          {{ link.name }}
+        </RouterLink>
+      </nav>
     </div>
   </footer>
 </template>
 
 <script setup lang="ts">
-const siteTitle = 'My Blog'
+const siteTitle = 'RootUser'
 const currentYear = new Date().getFullYear()
 const footerLinks = [
-  { name: 'GitHub', url: '#' },
-  { name: 'RSS', url: '#' },
+  { name: '归档', to: '/archives' },
+  { name: '导航', to: '/favorites' },
+  { name: '关于', to: '/about' },
 ]
 </script>
 

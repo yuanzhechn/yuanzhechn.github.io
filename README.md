@@ -1,4 +1,4 @@
-# My Blog Frontend
+# RootUser Blog Frontend
 
 Vue 3 博客前端。文章和训练计划均从独立后端 API 获取，前端不再保存 Markdown 文件。
 

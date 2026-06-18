@@ -22,6 +22,15 @@
               >
                 编辑文章
               </RouterLink>
+              <button
+                v-if="authenticated"
+                type="button"
+                class="delete-button"
+                :disabled="deleting"
+                @click="deleteCurrentPost"
+              >
+                {{ deleting ? 'Deleting...' : 'Delete' }}
+              </button>
               <MarkdownThemePicker />
             </div>
           </div>
@@ -54,7 +63,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import MarkdownThemePicker from '@/components/common/MarkdownThemePicker.vue'
@@ -67,10 +76,13 @@ import { usePostStore } from '@/stores/post'
 import { useMarkdownTheme } from '@/composables/useMarkdownTheme'
 import { extractToc } from '@/utils/markdown'
 import { useAdminSession } from '@/composables/useAdminSession'
+import { adminApi } from '@/api/modules/admin'
 
 const route = useRoute()
+const router = useRouter()
 const postStore = usePostStore()
 const markdownRenderer = ref<InstanceType<typeof MarkdownRenderer>>()
+const deleting = ref(false)
 const { pageThemeStyle } = useMarkdownTheme()
 const { authenticated, checkSession } = useAdminSession()
 
@@ -89,6 +101,20 @@ function loadPost() {
 
 function scrollToHeading(id: string) {
   markdownRenderer.value?.scrollToHeading(id)
+}
+
+async function deleteCurrentPost() {
+  const post = postStore.currentPost
+  if (!post) return
+  const confirmed = window.confirm(`确定删除《${post.title}》吗？这个操作会同时删除后端 Markdown 和资源文件。`)
+  if (!confirmed) return
+  deleting.value = true
+  try {
+    await adminApi.deleteContent('posts', post.slug)
+    await router.push('/posts')
+  } finally {
+    deleting.value = false
+  }
 }
 
 watch(() => route.params.slug, loadPost, { immediate: true })
@@ -124,7 +150,8 @@ onMounted(() => checkSession())
   gap: var(--spacing-sm);
 }
 
-.edit-link {
+.edit-link,
+.delete-button {
   min-height: 40px;
   display: inline-flex;
   align-items: center;
@@ -136,6 +163,16 @@ onMounted(() => checkSession())
   font-size: 0.82rem;
   font-weight: 700;
   text-decoration: none;
+}
+
+.delete-button {
+  color: #b42318;
+  cursor: pointer;
+}
+
+.delete-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .post-body {

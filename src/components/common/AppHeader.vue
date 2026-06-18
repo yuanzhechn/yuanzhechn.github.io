@@ -38,7 +38,7 @@
 import { RouterLink } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 
-const siteTitle = 'My Blog'
+const siteTitle = 'RootUser'
 const appStore = useAppStore()
 
 const navLinks = [
