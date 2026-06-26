@@ -1,5 +1,5 @@
 const defaultApiBaseUrl =
-  typeof window === 'undefined' ? 'http://127.0.0.1:3000' : `${window.location.protocol}//${window.location.hostname}:3000`
+  typeof window === 'undefined' ? 'http://127.0.0.1:3000' : window.location.origin
 export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl).replace(/\/$/, '')
 
 export class ApiError extends Error {
