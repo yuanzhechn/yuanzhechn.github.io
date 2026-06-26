@@ -15,22 +15,6 @@
               <PostMeta :post="postStore.currentPost" />
             </div>
             <div class="post-actions">
-              <RouterLink
-                v-if="authenticated"
-                class="edit-link"
-                :to="{ name: 'admin-publish', query: { edit: postStore.currentPost.slug } }"
-              >
-                编辑文章
-              </RouterLink>
-              <button
-                v-if="authenticated"
-                type="button"
-                class="delete-button"
-                :disabled="deleting"
-                @click="deleteCurrentPost"
-              >
-                {{ deleting ? 'Deleting...' : 'Delete' }}
-              </button>
               <MarkdownThemePicker />
             </div>
           </div>
@@ -63,7 +47,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import MarkdownThemePicker from '@/components/common/MarkdownThemePicker.vue'
@@ -75,16 +59,11 @@ import ErrorState from '@/components/ui/ErrorState.vue'
 import { usePostStore } from '@/stores/post'
 import { useMarkdownTheme } from '@/composables/useMarkdownTheme'
 import { extractToc } from '@/utils/markdown'
-import { useAdminSession } from '@/composables/useAdminSession'
-import { adminApi } from '@/api/modules/admin'
 
 const route = useRoute()
-const router = useRouter()
 const postStore = usePostStore()
 const markdownRenderer = ref<InstanceType<typeof MarkdownRenderer>>()
-const deleting = ref(false)
 const { pageThemeStyle } = useMarkdownTheme()
-const { authenticated, checkSession } = useAdminSession()
 
 const toc = computed(() => {
   if (!postStore.currentPost) return []
@@ -103,22 +82,9 @@ function scrollToHeading(id: string) {
   markdownRenderer.value?.scrollToHeading(id)
 }
 
-async function deleteCurrentPost() {
-  const post = postStore.currentPost
-  if (!post) return
-  const confirmed = window.confirm(`确定删除《${post.title}》吗？这个操作会同时删除后端 Markdown 和资源文件。`)
-  if (!confirmed) return
-  deleting.value = true
-  try {
-    await adminApi.deleteContent('posts', post.slug)
-    await router.push('/posts')
-  } finally {
-    deleting.value = false
-  }
-}
 
 watch(() => route.params.slug, loadPost, { immediate: true })
-onMounted(() => checkSession())
+
 </script>
 
 <style scoped>
@@ -151,29 +117,8 @@ onMounted(() => checkSession())
 }
 
 .edit-link,
-.delete-button {
-  min-height: 40px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0.55rem 0.8rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  background: color-mix(in srgb, var(--reader-surface) 92%, transparent);
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-decoration: none;
-}
 
-.delete-button {
-  color: #b42318;
-  cursor: pointer;
-}
 
-.delete-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
 
 .post-body {
   line-height: 1.8;

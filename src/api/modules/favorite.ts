@@ -24,10 +24,4 @@ export const favoriteApi = {
   async list() {
     return (await apiRequest<FavoriteSiteInput[]>('/api/favorites')).map(enrich)
   },
-  async save(sites: FavoriteSiteInput[]) {
-    return (await apiRequest<FavoriteSiteInput[]>('/api/admin/favorites', {
-      method: 'PUT',
-      body: JSON.stringify(sites),
-    })).map(enrich)
-  },
 }

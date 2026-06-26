@@ -1,5 +1,5 @@
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { dirname, extname, join, relative, resolve, sep } from 'node:path'
+﻿import { readdir, readFile } from 'node:fs/promises'
+import { extname, join, relative, resolve, sep } from 'node:path'
 import matter from 'gray-matter'
 import { config } from './config.js'
 import type {
@@ -8,7 +8,6 @@ import type {
   ContentCollection,
   ContentDocument,
   ContentMetadata,
-  EditableContentInput,
 } from './types.js'
 
 const categoryConfig: Record<string, { name: string; description: string; color: string }> = {
@@ -30,8 +29,6 @@ const isDate = (value: unknown): value is string =>
   typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
 const nonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0
-const today = () =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: config.timeZone }).format(new Date())
 
 function normalizeDate(value: unknown): unknown {
   return value instanceof Date && !Number.isNaN(value.getTime())
@@ -91,7 +88,6 @@ function validateMetadata(input: unknown, expectedCollection?: ContentCollection
   }
   return data as ContentMetadata
 }
-
 async function findMarkdownFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true }).catch(() => [])
   return (
@@ -105,6 +101,14 @@ async function findMarkdownFiles(directory: string): Promise<string[]> {
   ).flat()
 }
 
+function assertInside(filepath: string, root: string) {
+  const normalizedRoot = resolve(root)
+  const normalizedFile = resolve(filepath)
+  if (normalizedFile !== normalizedRoot && !normalizedFile.startsWith(`${normalizedRoot}${sep}`)) {
+    throw new Error('非法文件路径')
+  }
+}
+
 async function readCollection(collection: ContentCollection, publishedOnly = true): Promise<ContentDocument[]> {
   const files = await findMarkdownFiles(resolve(config.contentDir, collection))
   const slugs = new Set<string>()
@@ -112,7 +116,7 @@ async function readCollection(collection: ContentCollection, publishedOnly = tru
     files.map(async (filepath) => {
       const parsed = matter(await readFile(filepath, 'utf8'))
       const data = validateMetadata(parsed.data, collection)
-      if (slugs.has(data.slug)) throw new Error(`存在重复 slug: ${data.slug}`)
+      if (slugs.has(data.slug)) throw new Error(`瀛樺湪閲嶅 slug: ${data.slug}`)
       slugs.add(data.slug)
       return {
         filepath: normalizePath(relative(config.contentDir, filepath)),
@@ -305,7 +309,7 @@ export async function listLearningDocuments() {
   const groups = new Map<string, { slug: string; title: string; documents: typeof documents }>()
   for (const document of documents) {
     const slug = document.groupSlug || 'ungrouped'
-    const title = document.groupTitle || '零散记录'
+    const title = document.groupTitle || '闆舵暎璁板綍'
     const group = groups.get(slug) || { slug, title, documents: [] }
     group.documents.push(document)
     groups.set(slug, group)
@@ -325,133 +329,6 @@ export async function getLearningDocument(groupSlug: string, slug: string) {
     (item) => item.data.groupSlug === groupSlug && item.data.slug === slug,
   )
   return document ? learningDocumentFromDocument(document) : null
-}
-
-export async function getEditableContent(collection: ContentCollection, slug: string) {
-  const document = (await readCollection(collection, false)).find((item) => item.data.slug === slug)
-  if (!document) return null
-  return { ...document.data, content: document.content }
-}
-
-function cleanInput(input: EditableContentInput, collection: ContentCollection): EditableContentInput {
-  return {
-    ...input,
-    collection,
-    title: String(input.title || '').trim(),
-    slug: String(input.slug || '').trim(),
-    tags: Array.isArray(input.tags) ? input.tags.map(String).map((tag) => tag.trim()).filter(Boolean) : [],
-    excerpt: input.excerpt?.trim() || undefined,
-    category: input.category?.trim() || undefined,
-    groupSlug: input.groupSlug?.trim() || undefined,
-    groupTitle: input.groupTitle?.trim() || undefined,
-    content: String(input.content || '').trim(),
-  }
-}
-
-async function atomicWrite(filepath: string, value: string) {
-  const temp = `${filepath}.${Date.now()}-${process.pid}.tmp`
-  await writeFile(temp, value, { flag: 'wx' })
-  try {
-    await rename(temp, filepath)
-  } catch (error) {
-    await rm(temp, { force: true })
-    throw error
-  }
-}
-
-function contentDirectory(collection: ContentCollection, metadata: Pick<ContentMetadata, 'groupSlug'>) {
-  return (collection === 'documents' || collection === 'challenges') && metadata.groupSlug
-    ? resolve(config.contentDir, collection, metadata.groupSlug)
-    : resolve(config.contentDir, collection)
-}
-
-function contentAssetDirectory(collection: ContentCollection, slug: string, groupSlug?: string) {
-  return (collection === 'documents' || collection === 'challenges') && groupSlug
-    ? resolve(config.assetsDir, collection, groupSlug, slug, 'assets')
-    : resolve(config.assetsDir, collection, slug, 'assets')
-}
-
-function assertInside(filepath: string, root: string) {
-  const normalizedRoot = resolve(root)
-  const normalizedFile = resolve(filepath)
-  if (normalizedFile !== normalizedRoot && !normalizedFile.startsWith(`${normalizedRoot}${sep}`)) {
-    throw new Error('非法文件路径')
-  }
-}
-
-function serializableMetadata(metadata: ContentMetadata) {
-  return Object.fromEntries(
-    Object.entries(metadata).filter(([, value]) => value !== undefined),
-  )
-}
-
-export async function createContent(collection: ContentCollection, rawInput: EditableContentInput) {
-  const input = cleanInput(rawInput, collection)
-  if (!input.content) throw new Error('Markdown 正文不能为空')
-  if ((await readCollection(collection, false)).some((item) => item.data.slug === input.slug)) {
-    throw new Error('该 slug 已存在')
-  }
-  const currentDate = today()
-  const metadata: ContentMetadata = collection === 'posts' || collection === 'documents'
-    ? { ...input, collection, date: currentDate, updated: currentDate }
-    : { ...input, collection, publishAt: currentDate }
-  validateMetadata(metadata, collection)
-  const directory = contentDirectory(collection, metadata)
-  const filepath = resolve(directory, `${metadata.slug}.md`)
-  await mkdir(directory, { recursive: true })
-  await atomicWrite(filepath, matter.stringify(`${input.content}\n`, serializableMetadata(metadata)))
-  return { slug: metadata.slug, collection }
-}
-
-export async function updateContent(collection: ContentCollection, slug: string, rawInput: EditableContentInput) {
-  const input = cleanInput(rawInput, collection)
-  if (input.slug !== slug) throw new Error('编辑时不能修改 slug')
-  if (!input.content) throw new Error('Markdown 正文不能为空')
-  const existing = (await readCollection(collection, false)).find((item) => item.data.slug === slug)
-  if (!existing) throw new Error('内容不存在')
-  const metadata: ContentMetadata = collection === 'posts' || collection === 'documents'
-    ? { ...input, collection, date: existing.data.date, updated: today() }
-    : { ...input, collection, publishAt: existing.data.publishAt }
-  validateMetadata(metadata, collection)
-  const filepath = resolve(config.contentDir, existing.filepath)
-  const expectedRoot = `${resolve(config.contentDir, collection)}${sep}`
-  if (!filepath.startsWith(expectedRoot)) throw new Error('非法文件路径')
-  await atomicWrite(filepath, matter.stringify(`${input.content}\n`, serializableMetadata(metadata)))
-  return { slug, collection }
-}
-
-export async function deleteContent(collection: ContentCollection, slug: string) {
-  const existing = (await readCollection(collection, false)).find((item) => item.data.slug === slug)
-  if (!existing) throw new Error('内容不存在')
-  const filepath = resolve(config.contentDir, existing.filepath)
-  assertInside(filepath, resolve(config.contentDir, collection))
-  await rm(filepath, { force: true })
-  await rm(contentAssetDirectory(collection, slug, existing.data.groupSlug), { recursive: true, force: true })
-  return { slug, collection }
-}
-
-export async function saveContentAsset(
-  collection: ContentCollection,
-  slug: string,
-  relativePath: string,
-  buffer: Buffer,
-  groupSlug?: string,
-) {
-  const existing = (await readCollection(collection, false)).find((item) => item.data.slug === slug)
-  if (!existing) throw new Error('内容不存在')
-  if ((collection === 'documents' || collection === 'challenges') && existing.data.groupSlug !== groupSlug) {
-    throw new Error('集合路径不匹配')
-  }
-  const segments = safePathSegments(relativePath)
-  if (!segments.length || segments.some((segment) => segment === '.' || segment === '..')) {
-    throw new Error('资源文件路径无效')
-  }
-  const root = contentAssetDirectory(collection, slug, existing.data.groupSlug)
-  const filepath = join(root, ...segments)
-  assertInside(filepath, root)
-  await mkdir(dirname(filepath), { recursive: true })
-  await writeFile(filepath, buffer)
-  return normalizePath(relative(config.assetsDir, filepath))
 }
 
 export async function readContentAsset(assetPath: string) {
