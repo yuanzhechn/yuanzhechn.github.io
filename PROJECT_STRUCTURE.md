@@ -1,135 +1,168 @@
-# 项目核心文件说明
+# 项目核心结构说明
+
+这个项目现在分成三块：
+
+1. 主站前端：`src/`
+2. 主站本地后端与内容数据：`server/`
+3. 本地内容更新工具：`update/`
+
+## 文件树
 
 ```text
 my-blog/
-├─ public/
-│  └─ favicon.ico                               # 浏览器标签页图标
+├─ public/                         # 主站静态资源，构建时原样复制
+│  └─ favicon.ico
 │
-├─ src/
-│  ├─ api/                                      # 页面使用的数据访问接口
-│  │  ├─ client.ts                              # 封装后端地址、Cookie 和错误处理
-│  │  ├─ index.ts                               # 统一导出文章 API
-│  │  └─ modules/
-│  │     ├─ admin.ts                            # 管理员登录、退出和上传接口
-│  │     ├─ post.ts                             # 调用后端文章、分类、标签和归档 API
-│  │     └─ challenge.ts                        # 调用后端训练计划 API
+├─ src/                            # 主站 Vue 前端
+│  ├─ api/                         # 前端请求后端 API 的封装
+│  │  ├─ client.ts                 # API 基础地址、请求错误处理
+│  │  └─ modules/                  # 文章、学习文档、训练计划、收藏网站等接口
 │  │
-│  ├─ assets/
-│  │  ├─ markdown-themes/                       # Markdown 渲染使用的 Typora 主题
-│  │  │  ├─ phycat/
-│  │  │  │  ├─ phycat.light.css                # PhyCat 浅色主题公共基础样式
-│  │  │  │  └─ phycat.dark.css                 # PhyCat 深色主题公共基础样式
-│  │  │  ├─ phycat-abyss.css                   # 深渊主题配色
-│  │  │  ├─ phycat-caramel.css                 # 焦糖主题配色
-│  │  │  ├─ phycat-cherry.css                  # 樱桃主题配色
-│  │  │  ├─ phycat-forest.css                  # 森林主题配色
-│  │  │  ├─ phycat-mauve.css                   # 木槿主题配色
-│  │  │  ├─ phycat-mint.css                    # 薄荷主题配色
-│  │  │  ├─ phycat-prussian.css                # 普鲁士蓝主题配色
-│  │  │  ├─ phycat-radiation.css               # 辐光主题配色
-│  │  │  ├─ phycat-sakura.css                  # 樱花主题配色
-│  │  │  ├─ phycat-sky.css                     # 晴空主题配色
-│  │  │  └─ phycat-vampire.css                 # 夜宴主题配色
-│  │  └─ styles/
-│  │     ├─ base.css                            # 浏览器样式重置和基础元素样式
-│  │     ├─ main.css                            # 汇总项目全局样式
-│  │     └─ variables.css                       # 定义颜色、间距、阴影等 CSS 变量
+│  ├─ assets/                      # 前端资源
+│  │  ├─ markdown-themes/          # Typora 风格 Markdown 主题 CSS
+│  │  └─ styles/                   # 全局样式、变量、基础样式
 │  │
-│  ├─ components/
-│  │  ├─ blog/
-│  │  │  ├─ PostCard.vue                       # 展示单篇文章摘要卡片
-│  │  │  ├─ PostList.vue                       # 展示文章列表及空状态
-│  │  │  ├─ PostMeta.vue                       # 展示文章日期、字数和阅读时间
-│  │  │  ├─ PostPagination.vue                 # 控制文章列表分页
-│  │  │  ├─ PostTag.vue                        # 展示可点击的文章标签
-│  │  │  └─ PostToc.vue                        # 展示文章目录并定位标题
-│  │  ├─ challenge/
-│  │  │  └─ ChallengeCard.vue                  # 展示单期题目的摘要信息
-│  │  ├─ common/
-│  │  │  ├─ AppFooter.vue                      # 全站页脚
-│  │  │  ├─ AppHeader.vue                      # 全站导航栏
-│  │  │  ├─ BackToTop.vue                      # 页面返回顶部按钮
-│  │  │  ├─ MarkdownRenderer.vue               # 在 Shadow DOM 中渲染 Markdown 和主题
-│  │  │  └─ MarkdownThemePicker.vue            # Markdown 主题切换面板
-│  │  ├─ favorites/
-│  │  │  └─ FavoriteSiteCard.vue               # 展示收藏网站图标和链接
-│  │  ├─ home/
-│  │  │  ├─ HomeActivityHeatmap.vue            # 首页内容活跃度热力图
-│  │  │  ├─ HomeChallengeSpotlight.vue         # 首页最新题目展示组件
-│  │  │  ├─ HomeDashboard.vue                  # 首页数据和快捷入口面板
-│  │  │  ├─ HomeHero.vue                       # 首页主要视觉区域
-│  │  │  └─ HomeQuickFinder.vue                # 首页文章快速查找组件
-│  │  └─ ui/
-│  │     ├─ EmptyState.vue                     # 通用空数据提示
-│  │     ├─ ErrorState.vue                     # 通用错误提示
-│  │     └─ LoadingSpinner.vue                 # 通用加载状态
+│  ├─ components/                  # 主站组件
+│  │  ├─ blog/                     # 文章卡片、文章列表、文章目录等
+│  │  ├─ challenge/                # 训练计划卡片
+│  │  ├─ common/                   # 导航栏、页脚、Markdown 渲染器、主题切换器
+│  │  ├─ content/                  # 标签/分类侧栏
+│  │  ├─ favorites/                # 收藏网站桌面布局组件
+│  │  ├─ home/                     # 首页展示组件
+│  │  └─ ui/                       # 通用空状态、错误状态、加载状态
 │  │
-│  ├─ composables/
-│  │  ├─ useMarkdownTheme.ts                   # 管理 Markdown 主题选择和本地持久化
-│  │  └─ useScrollToTop.ts                     # 管理路由切换后的页面滚动位置
+│  ├─ composables/                 # 复用逻辑，例如 Markdown 主题和滚动行为
+│  ├─ data/                        # 前端静态配置，例如 Markdown 主题注册
+│  ├─ layouts/                     # 页面布局
+│  ├─ router/                      # Vue Router 路由配置
+│  ├─ stores/                      # Pinia 状态管理
+│  ├─ types/                       # TypeScript 类型定义
+│  ├─ utils/                       # 日期、格式化、Markdown 处理等工具
+│  ├─ views/                       # 页面级组件
+│  ├─ App.vue                      # 主站根组件
+│  └─ main.ts                      # 主站入口
+│
+├─ server/                         # 主站本地后端和内容目录
+│  ├─ src/
+│  │  ├─ config.ts                 # 后端配置，端口、内容目录、静态目录等
+│  │  ├─ content.ts                # 扫描 Markdown、校验 frontmatter、生成 API 数据
+│  │  ├─ favorites.ts              # 读取收藏网站数据
+│  │  ├─ server.ts                 # Fastify 服务入口，提供 API 和静态主站
+│  │  └─ types.ts                  # 后端内容类型定义
+│  │
+│  ├─ content/                     # Markdown 内容源文件
+│  │  ├─ posts/                    # 博客文章
+│  │  ├─ documents/                # 学习文档，按集合 slug 分目录
+│  │  └─ challenges/               # 训练计划，按集合 slug 分目录
+│  │
+│  ├─ content-assets/              # Markdown 图片和附件
+│  │  └─ <文章slug>/               # 每篇文章独立的资源目录
 │  │
 │  ├─ data/
-│  │  ├─ favorites.ts                          # 配置收藏网站、分组和网站图标
-│  │  └─ markdownThemes.ts                     # 注册主题并提供网页兼容样式
+│  │  └─ favorites.json            # 收藏网站分组和链接数据
 │  │
-│  ├─ layouts/
-│  │  ├─ BlogLayout.vue                        # 文章和题目详情页的正文、侧栏布局
-│  │  └─ DefaultLayout.vue                     # 普通页面使用的通用布局
-│  │
-│  ├─ router/
-│  │  ├─ guards.ts                             # 处理页面标题等路由守卫逻辑
-│  │  ├─ index.ts                              # 创建并导出 Vue Router
-│  │  └─ routes.ts                             # 定义所有页面路由
-│  │
-│  ├─ stores/
-│  │  ├─ app.ts                                # 管理全站主题等应用状态
-│  │  ├─ category.ts                           # 管理分类数据状态
-│  │  ├─ challenge.ts                          # 管理题目列表和详情状态
-│  │  ├─ post.ts                               # 管理文章列表、详情和分页状态
-│  │  └─ tag.ts                                # 管理标签数据状态
-│  │
-│  ├─ types/
-│  │  ├─ category.ts                           # 分类相关 TypeScript 类型
-│  │  ├─ challenge.ts                          # 题目相关 TypeScript 类型
-│  │  ├─ favorite.ts                           # 收藏网站相关 TypeScript 类型
-│  │  ├─ home.ts                               # 首页组件相关 TypeScript 类型
-│  │  ├─ index.ts                              # 统一导出项目类型
-│  │  ├─ post.ts                               # 文章相关 TypeScript 类型
-│  │  └─ tag.ts                                # 标签相关 TypeScript 类型
-│  │
-│  ├─ utils/
-│  │  ├─ date.ts                               # 日期格式化工具
-│  │  ├─ format.ts                             # 文本和数字格式化工具
-│  │  └─ markdown.ts                           # Markdown 解析、转义和目录提取工具
-│  │
-│  ├─ views/
-│  │  ├─ AboutView.vue                         # 关于页面
-│  │  ├─ AdminPublishView.vue                   # 管理员登录和内容上传页面
-│  │  ├─ ArchiveView.vue                       # 文章归档页面
-│  │  ├─ BlogDetailView.vue                    # 博客文章详情页面
-│  │  ├─ BlogListView.vue                      # 文章列表及筛选结果页面
-│  │  ├─ CategoryView.vue                      # 分类总览页面
-│  │  ├─ ChallengeDetailView.vue               # 每期一题详情页面
-│  │  ├─ ChallengeListView.vue                 # 每期一题列表页面
-│  │  ├─ FavoritesView.vue                     # 桌面风格收藏网站页面
-│  │  ├─ HomeView.vue                          # 博客首页
-│  │  ├─ NotFoundView.vue                      # 404 页面
-│  │  └─ TagView.vue                           # 标签总览页面
-│  │
-│  ├─ App.vue                                  # 应用根组件和全局样式入口
-│  └─ main.ts                                  # 创建 Vue 应用并注册 Pinia 和路由
+│  └─ tsconfig.json                # 后端 TypeScript 编译配置
 │
-├─ .editorconfig                               # 统一编辑器基础格式
-├─ .gitignore                                  # 定义 Git 忽略文件
-├─ .oxlintrc.json                              # 配置 Oxlint 检查规则
-├─ .prettierrc.json                            # 配置 Prettier 格式化规则
-├─ env.d.ts                                    # 声明 Vite、Vue 和虚拟模块类型
-├─ eslint.config.ts                            # 配置 ESLint 检查规则
-├─ index.html                                  # Vite 应用 HTML 入口
-├─ package.json                                # 定义依赖和项目脚本
-├─ package-lock.json                           # 锁定 npm 依赖版本
-├─ tsconfig.app.json                           # 配置前端应用 TypeScript 编译
-├─ tsconfig.json                               # 汇总 TypeScript 配置
-├─ tsconfig.node.json                          # 配置 Node 和 Vite 文件的 TypeScript 编译
-└─ vite.config.ts                              # 配置 Vue、开发工具和路径别名
+├─ update/                         # 独立的本地内容更新工具
+│  ├─ public/
+│  │  ├─ index.html                # 更新工具页面结构
+│  │  ├─ app.js                    # 更新工具前端逻辑
+│  │  └─ styles.css                # 更新工具样式
+│  ├─ package.json                 # 更新工具启动脚本
+│  └─ server.ts                    # 更新工具本地服务，写入 Markdown 和附件
+│
+├─ DEPLOY_WORKFLOW.md              # main 和 gh-pages 推送流程
+├─ README.md                       # 常用启动方式和项目说明
+├─ index.html                      # Vite 主站入口 HTML
+├─ package.json                    # 主项目依赖和脚本
+├─ package-lock.json               # npm 依赖锁定文件
+├─ vite.config.ts                  # Vite 配置，含本地 API 代理
+├─ tsconfig.json                   # TypeScript 配置入口
+├─ tsconfig.app.json               # 前端 TypeScript 配置
+└─ tsconfig.node.json              # Vite/Node TypeScript 配置
+```
+
+## 启动入口
+
+本地实时预览主站：
+
+```powershell
+cd D:\JetBrainsProject\WebStorm\my-blog
+npm run dev:local
+```
+
+访问：
+
+```text
+http://127.0.0.1:5173
+```
+
+内容更新工具：
+
+```powershell
+cd D:\JetBrainsProject\WebStorm\my-blog\update
+npm run dev
+```
+
+访问：
+
+```text
+http://127.0.0.1:5174
+```
+
+## 内容存储规则
+
+Markdown 文件保存在：
+
+```text
+server/content
+```
+
+图片和附件保存在：
+
+```text
+server/content-assets/<文章slug>
+```
+
+内容类型对应关系：
+
+```text
+posts/                       # 博客文章
+documents/<集合slug>/         # 学习文档
+challenges/<集合slug>/        # 训练计划
+```
+
+页面展示的标题、分类、标签、发布时间、集合信息等都来自 Markdown 顶部的 frontmatter。目录结构只负责整理磁盘文件，不直接决定页面归档。
+
+## 主站与更新工具的关系
+
+`update/` 是独立的本地工具，不属于主站页面，也不会发布到 GitHub Pages。
+
+它负责：
+
+- 新建和编辑 Markdown
+- 删除已有内容
+- 上传图片和附件
+- 自动生成 frontmatter
+- 把内容写入 `server/content`
+
+主站负责：
+
+- 从后端 API 读取 Markdown
+- 渲染文章、学习文档和训练计划
+- 展示 Typora 风格 Markdown 主题
+- 展示收藏网站、归档、标签等页面
+
+## 发布相关
+
+本地开发不需要每次构建。只有发布静态页面时才执行：
+
+```powershell
+npm run build-only
+```
+
+具体发布流程见：
+
+```text
+DEPLOY_WORKFLOW.md
 ```

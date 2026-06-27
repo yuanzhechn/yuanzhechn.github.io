@@ -1,0 +1,10 @@
+{
+  "name": "my-blog-update",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../node_modules/tsx/dist/cli.mjs watch server.ts",
+    "start": "node ../node_modules/tsx/dist/cli.mjs server.ts"
+  }
+}

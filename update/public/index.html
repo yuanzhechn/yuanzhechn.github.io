@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RootUser 内容更新工具</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">RootUser Local Update</p>
+          <h1>内容更新工具</h1>
+          <p>本地编辑 Markdown，自动写入博客内容目录。</p>
+        </div>
+        <div class="port">localhost:5174</div>
+      </section>
+
+      <section class="workspace">
+        <aside class="library">
+          <div class="panel-head">
+            <h2>已有内容</h2>
+            <button id="newBtn" type="button">新建</button>
+          </div>
+          <input id="searchInput" class="search" placeholder="搜索标题、标签、slug" />
+          <div id="contentList" class="content-list"></div>
+        </aside>
+
+        <section class="editor">
+          <div id="statusBar" class="status-bar">已准备编辑内容</div>
+          <div class="form-grid">
+            <label>
+              内容类型
+              <select id="collection">
+                <option value="posts">博客文章</option>
+                <option value="documents">学习文档</option>
+                <option value="challenges">训练计划</option>
+              </select>
+            </label>
+            <label>
+              标题
+              <input id="title" placeholder="例如：数据库关系模型" />
+            </label>
+            <label>
+              slug
+              <input id="slug" placeholder="database-relational-model" />
+              <small>用于文件名、网址和图片目录，只支持小写英文、数字、连字符。</small>
+            </label>
+            <label id="categoryField">
+              分类
+              <input id="category" list="categoryOptions" placeholder="frontend" />
+              <datalist id="categoryOptions"></datalist>
+            </label>
+            <label class="span-2 hidden" id="groupField">
+              集合
+              <div class="group-row">
+                <input id="groupTitle" list="groupOptions" placeholder="集合名称，例如：数据库学习" />
+                <input id="groupSlug" placeholder="集合 slug，例如：database-learning" />
+              </div>
+              <datalist id="groupOptions"></datalist>
+              <div id="groupChips" class="suggestion-row"></div>
+            </label>
+            <label>
+              标签
+              <div class="tag-box" id="tagBox">
+                <input id="tagInput" list="tagOptions" placeholder="输入后回车创建标签" />
+                <button id="addTagBtn" class="tag-add" type="button">添加</button>
+              </div>
+              <datalist id="tagOptions"></datalist>
+              <div id="tagSuggestions" class="suggestion-row"></div>
+            </label>
+            <label>
+              摘要
+              <input id="excerpt" placeholder="可选，留空会由主站自动截取正文" />
+            </label>
+            <label class="document-only hidden">
+              文档顺序
+              <input id="order" type="number" min="1" value="1" />
+            </label>
+            <label class="challenge-only hidden">
+              截止日期
+              <input id="dueAt" type="date" />
+            </label>
+            <label class="challenge-only hidden">
+              难度
+              <select id="difficulty">
+                <option value="easy">easy</option>
+                <option value="medium">medium</option>
+                <option value="hard">hard</option>
+              </select>
+            </label>
+            <label class="challenge-only hidden">
+              序号
+              <input id="sequence" type="number" min="1" value="1" />
+            </label>
+            <label class="challenge-only hidden">
+              周期
+              <select id="cadence">
+                <option value="weekly">weekly</option>
+                <option value="biweekly">biweekly</option>
+                <option value="monthly">monthly</option>
+                <option value="irregular">irregular</option>
+              </select>
+            </label>
+            <label class="checkbox">
+              <input id="isPublished" type="checkbox" checked />
+              发布
+            </label>
+            <label class="checkbox post-only">
+              <input id="isTop" type="checkbox" />
+              置顶
+            </label>
+          </div>
+
+          <label class="markdown-label">
+            Markdown 正文
+            <textarea id="content" spellcheck="false" placeholder="# 在这里写正文"></textarea>
+          </label>
+
+          <div class="actions">
+            <label class="file-action">
+              <span>导入 Markdown</span>
+              <input id="mdImport" type="file" accept=".md,.markdown,text/markdown" />
+            </label>
+            <label class="file-action">
+              <span>选择图片文件夹</span>
+              <input id="assetImport" type="file" multiple webkitdirectory />
+            </label>
+            <button id="saveBtn" type="button">保存到内容目录</button>
+            <button id="deleteBtn" class="danger-btn" type="button" disabled>删除当前内容</button>
+            <span id="status"></span>
+          </div>
+          <div id="assetHint" class="asset-hint">未选择附件。选择图片文件夹后会保存到 server/content-assets/&lt;slug&gt;/。</div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="/assets/app.js?v=20260627-3"></script>
+  </body>
+</html>
