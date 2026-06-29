@@ -3,7 +3,9 @@ const defaultApiBaseUrl =
 export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl).replace(/\/$/, '')
 export const shouldUseStaticContent =
   typeof window !== 'undefined' &&
-  (window.location.hostname.endsWith('github.io') || import.meta.env.VITE_STATIC_CONTENT === 'true')
+  (import.meta.env.PROD ||
+    import.meta.env.VITE_STATIC_CONTENT === 'true' ||
+    window.location.hostname.endsWith('github.io'))
 
 export class ApiError extends Error {
   constructor(

@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { copyFile, cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 process.env.CONTENT_DIR ||= './server/content'
@@ -57,6 +57,8 @@ const payload = {
 
 await mkdir(outputDir, { recursive: true })
 await writeFile(resolve(outputDir, 'content.json'), `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
+await copyFile(resolve(process.cwd(), 'dist/index.html'), resolve(process.cwd(), 'dist/404.html'))
+await writeFile(resolve(process.cwd(), 'dist/.nojekyll'), '', 'utf8')
 
 await rm(assetsTarget, { recursive: true, force: true })
 await cp(assetsSource, assetsTarget, { recursive: true, force: true }).catch(async (error: NodeJS.ErrnoException) => {
