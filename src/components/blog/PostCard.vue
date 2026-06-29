@@ -1,5 +1,5 @@
 <template>
-  <RouterLink :to="`/post/${post.slug}`" class="post-card">
+  <RouterLink :to="`/post/${post.slug || post.id}`" class="post-card">
     <div class="post-body">
       <h2 class="post-title">
         <span v-if="post.isTop" class="top-badge">置顶</span>

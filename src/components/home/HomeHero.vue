@@ -24,7 +24,7 @@
         <span class="featured-status">已更新</span>
       </div>
 
-      <RouterLink v-if="featuredPost" :to="`/post/${featuredPost.slug}`" class="featured-link">
+      <RouterLink v-if="featuredPost" :to="`/post/${featuredPost.slug || featuredPost.id}`" class="featured-link">
         <span class="featured-category">{{ featuredPost.category }}</span>
         <strong>{{ featuredPost.title }}</strong>
         <p>{{ featuredPost.excerpt }}</p>

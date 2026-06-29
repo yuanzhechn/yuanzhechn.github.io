@@ -18,7 +18,7 @@
       <RouterLink
         v-for="post in results"
         :key="post.id"
-        :to="`/post/${post.slug}`"
+        :to="`/post/${post.slug || post.id}`"
         class="result-row"
       >
         <span class="result-title">{{ post.title }}</span>

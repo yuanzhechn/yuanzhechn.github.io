@@ -38,8 +38,17 @@ function loadStaticContent() {
 }
 
 function toPostListItem(post: Post): PostListItem {
-  const { content: _content, updatedAt: _updatedAt, isPublished: _isPublished, wordCount: _wordCount, viewCount: _viewCount, ...item } = post
-  return item
+  return {
+    id: post.id,
+    title: post.title,
+    slug: post.slug || post.id,
+    excerpt: post.excerpt,
+    category: post.category,
+    tags: post.tags,
+    createdAt: post.createdAt,
+    isTop: post.isTop,
+    readingTime: post.readingTime,
+  }
 }
 
 function paginatePosts(posts: Post[], params: PostQueryParams = {}): PostListResult {

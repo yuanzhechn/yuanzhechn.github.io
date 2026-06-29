@@ -13,7 +13,7 @@
       <div v-else class="content-sections">
         <section v-if="result.posts.length" class="content-section">
           <header><h2>博客文章</h2><span>{{ result.posts.length }}</span></header>
-          <RouterLink v-for="item in result.posts" :key="item.id" :to="`/post/${item.slug}`" class="content-item">
+          <RouterLink v-for="item in result.posts" :key="item.id" :to="`/post/${item.slug || item.id}`" class="content-item">
             <div><strong>{{ item.title }}</strong><p>{{ item.excerpt }}</p></div>
             <span>文章</span>
           </RouterLink>

@@ -14,7 +14,7 @@
           <RouterLink
             v-for="post in item.posts"
             :key="post.id"
-            :to="`/post/${post.slug}`"
+            :to="`/post/${post.slug || post.id}`"
             class="archive-post"
           >
             <span class="archive-date">{{ formatDate(post.createdAt) }}</span>
