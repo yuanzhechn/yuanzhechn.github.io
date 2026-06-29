@@ -1,4 +1,5 @@
 import { apiRequest } from '@/api/client'
+import { staticContentApi } from '@/api/staticContent'
 import type { FavoriteSite } from '@/types'
 
 export interface FavoriteSiteInput {
@@ -22,6 +23,6 @@ function enrich(site: FavoriteSiteInput): FavoriteSite {
 
 export const favoriteApi = {
   async list() {
-    return (await apiRequest<FavoriteSiteInput[]>('/api/favorites')).map(enrich)
+    return (await apiRequest<FavoriteSiteInput[]>('/api/favorites').catch(() => staticContentApi.listFavorites())).map(enrich)
   },
 }
