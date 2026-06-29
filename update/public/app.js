@@ -9,6 +9,8 @@ const state = {
   assets: [],
 }
 
+const maxAssetTotalSize = 80 * 1024 * 1024
+
 const $ = (id) => document.getElementById(id)
 const fields = {
   collection: $('collection'),
@@ -46,6 +48,67 @@ function slugify(text) {
     .replace(/^-+|-+$/g, '')
     .replace(/-{2,}/g, '-')
   return slug
+}
+
+function parseFrontmatter(markdown) {
+  const match = markdown.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n)?/)
+  if (!match) return { data: {}, content: markdown }
+
+  const data = {}
+  const lines = match[1].split(/\r?\n/)
+  let currentArrayKey = ''
+  for (const line of lines) {
+    const arrayItem = line.match(/^\s*-\s+(.+)$/)
+    if (arrayItem && currentArrayKey) {
+      data[currentArrayKey] ??= []
+      data[currentArrayKey].push(arrayItem[1].trim().replace(/^['"]|['"]$/g, ''))
+      continue
+    }
+
+    const pair = line.match(/^([A-Za-z][\w-]*)\s*:\s*(.*)$/)
+    if (!pair) continue
+    const [, key, rawValue] = pair
+    const value = rawValue.trim()
+    currentArrayKey = value === '' ? key : ''
+    if (value === '') {
+      data[key] = []
+      continue
+    }
+    if (value === 'true' || value === 'false') data[key] = value === 'true'
+    else data[key] = value.replace(/^['"]|['"]$/g, '')
+  }
+
+  return { data, content: markdown.slice(match[0].length) }
+}
+
+function applyImportedMarkdown(filename, markdown) {
+  const parsed = parseFrontmatter(markdown)
+  const data = parsed.data
+  fields.content.value = parsed.content
+
+  if (data.collection && ['posts', 'documents', 'challenges'].includes(data.collection)) fields.collection.value = data.collection
+  if (data.title) fields.title.value = data.title
+  if (data.slug) fields.slug.value = data.slug
+  if (data.category) fields.category.value = data.category
+  if (data.groupTitle) fields.groupTitle.value = data.groupTitle
+  if (data.groupSlug) fields.groupSlug.value = data.groupSlug
+  if (data.excerpt) fields.excerpt.value = data.excerpt
+  if (data.order) fields.order.value = data.order
+  if (data.dueAt) fields.dueAt.value = data.dueAt
+  if (data.difficulty) fields.difficulty.value = data.difficulty
+  if (data.sequence) fields.sequence.value = data.sequence
+  if (data.cadence) fields.cadence.value = data.cadence
+  if (typeof data.isPublished === 'boolean') fields.isPublished.checked = data.isPublished
+  if (typeof data.isTop === 'boolean') fields.isTop.checked = data.isTop
+  if (Array.isArray(data.tags)) state.currentTags = [...new Set(data.tags.map(String).filter(Boolean))]
+
+  if (!fields.title.value) fields.title.value = filename.replace(/\.(md|markdown)$/i, '')
+  if (!fields.slug.value) fields.slug.value = slugify(fields.title.value) || slugify(filename.replace(/\.(md|markdown)$/i, ''))
+
+  renderTags()
+  renderTagSuggestions()
+  syncVisibility()
+  setStatus(`已导入 Markdown：${filename}`, 'success')
 }
 
 function renderTags() {
@@ -259,6 +322,22 @@ function normalizeAssetName(name) {
     .join('/')
 }
 
+function stripCommonAssetRoot(names) {
+  const normalized = names.map(normalizeAssetName)
+  const splitPaths = normalized.map((name) => name.split('/'))
+  if (splitPaths.length === 0) return []
+
+  let commonLength = 0
+  while (
+    splitPaths.every((segments) => segments.length > commonLength + 1) &&
+    splitPaths.every((segments) => segments[commonLength] === splitPaths[0][commonLength])
+  ) {
+    commonLength += 1
+  }
+
+  return splitPaths.map((segments) => segments.slice(commonLength).join('/'))
+}
+
 function assetUrlFor(path) {
   const filename = normalizeAssetName(path.split(/[\\/]+/).pop() || path)
   const match = state.assets.find((asset) => {
@@ -382,21 +461,30 @@ $('searchInput').addEventListener('input', renderList)
 $('newBtn').addEventListener('click', resetForm)
 $('saveBtn').addEventListener('click', save)
 $('deleteBtn').addEventListener('click', deleteCurrent)
+$('mdImport').addEventListener('click', () => {
+  $('mdImport').value = ''
+})
 $('mdImport').addEventListener('change', async (event) => {
-  const file = event.target.files?.[0]
-  if (!file) return
-  fields.content.value = await file.text()
-  if (!fields.title.value) fields.title.value = file.name.replace(/\.(md|markdown)$/i, '')
-  if (!fields.slug.value) fields.slug.value = slugify(fields.title.value)
+  try {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!/\.(md|markdown)$/i.test(file.name)) {
+      setStatus('请选择 .md 或 .markdown 文件', 'error')
+      return
+    }
+    applyImportedMarkdown(file.name, await file.text())
+  } catch (error) {
+    setStatus(`导入失败：${error.message || '无法读取 Markdown 文件'}`, 'error')
+  }
 })
 
 function renderAssets() {
   const hint = $('assetHint')
   if (!state.assets.length) {
-    hint.textContent = '未选择附件。选择图片文件夹后会保存到 server/content-assets/<slug>/。'
+    hint.textContent = '未选择图片。选择图片后会保存到 server/content-assets/<slug>/。'
     return
   }
-  hint.textContent = `已选择 ${state.assets.length} 个附件，保存后可在 Markdown 中用 /content-assets/${fields.slug.value || '<slug>'}/文件名 引用。`
+  hint.textContent = `已选择 ${state.assets.length} 张图片，保存后可在 Markdown 中用 /content-assets/${fields.slug.value || '<slug>'}/文件名 引用。`
 }
 
 function readFileAsDataUrl(file) {
@@ -410,9 +498,17 @@ function readFileAsDataUrl(file) {
 
 $('assetImport').addEventListener('change', async (event) => {
   const files = [...(event.target.files || [])]
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+  if (totalSize > maxAssetTotalSize) {
+    state.assets = []
+    renderAssets()
+    setStatus('图片总大小超过 80MB，请分批上传或压缩图片', 'error')
+    return
+  }
+  const assetNames = stripCommonAssetRoot(files.map((file) => file.webkitRelativePath || file.name))
   state.assets = await Promise.all(
-    files.map(async (file) => ({
-      name: normalizeAssetName(file.webkitRelativePath || file.name),
+    files.map(async (file, index) => ({
+      name: assetNames[index],
       data: await readFileAsDataUrl(file),
     })),
   )

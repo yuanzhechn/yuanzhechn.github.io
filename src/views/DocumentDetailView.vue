@@ -14,22 +14,37 @@
             <MarkdownThemePicker />
           </div>
         </header>
-        <MarkdownRenderer :content="document.content" />
+        <div v-if="toc.length > 0" class="detail-toc-mobile">
+          <PostToc :items="toc" @navigate="scrollToHeading" />
+        </div>
+        <MarkdownRenderer
+          ref="markdownRenderer"
+          :content="document.content"
+        />
       </article>
+    </template>
+    <template #sidebar>
+      <aside v-if="document" class="outline-widget">
+        <p class="widget-eyebrow">Outline</p>
+        <h3>文档大纲</h3>
+        <PostToc :items="toc" @navigate="scrollToHeading" />
+      </aside>
     </template>
   </BlogLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import MarkdownThemePicker from '@/components/common/MarkdownThemePicker.vue'
+import PostToc from '@/components/blog/PostToc.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import { documentApi } from '@/api/modules/document'
 import { useMarkdownTheme } from '@/composables/useMarkdownTheme'
+import { extractToc } from '@/utils/markdown'
 import type { LearningDocument } from '@/types'
 
 const route = useRoute()
@@ -37,7 +52,13 @@ const document = ref<LearningDocument>()
 const loading = ref(true)
 const error = ref('')
 const { pageThemeStyle } = useMarkdownTheme()
+const markdownRenderer = ref<InstanceType<typeof MarkdownRenderer>>()
 
+const toc = computed(() => document.value ? extractToc(document.value.content) : [])
+
+function scrollToHeading(id: string) {
+  markdownRenderer.value?.scrollToHeading(id)
+}
 
 onMounted(async () => {
   try {
@@ -60,5 +81,10 @@ onMounted(async () => {
 .actions > a, .actions > button { padding: .55rem .8rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text); text-decoration: none; font-size: .82rem; font-weight: 700; }
 .actions > button:disabled { opacity: .55; cursor: not-allowed; }
 .state { display: grid; min-height: 240px; place-items: center; }
+.outline-widget { padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--reader-surface) 92%, transparent); box-shadow: 0 18px 48px color-mix(in srgb, var(--reader-text) 8%, transparent); backdrop-filter: blur(14px); }
+.outline-widget h3 { margin: 0 0 .85rem; font-size: 1.05rem; }
+.widget-eyebrow { margin: 0 0 .25rem; color: var(--color-primary); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.detail-toc-mobile { display: none; margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--reader-surface) 92%, transparent); }
+@media (max-width: 768px) { .detail-toc-mobile { display: block; } }
 @media (max-width: 640px) { .document-detail > header { flex-direction: column; } }
 </style>

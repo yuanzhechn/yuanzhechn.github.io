@@ -124,17 +124,17 @@
               <input id="mdImport" type="file" accept=".md,.markdown,text/markdown" />
             </label>
             <label class="file-action">
-              <span>选择图片文件夹</span>
-              <input id="assetImport" type="file" multiple webkitdirectory />
+              <span>选择图片</span>
+              <input id="assetImport" type="file" accept="image/*" multiple />
             </label>
             <button id="saveBtn" type="button">保存到内容目录</button>
             <button id="deleteBtn" class="danger-btn" type="button" disabled>删除当前内容</button>
             <span id="status"></span>
           </div>
-          <div id="assetHint" class="asset-hint">未选择附件。选择图片文件夹后会保存到 server/content-assets/&lt;slug&gt;/。</div>
+          <div id="assetHint" class="asset-hint">未选择图片。选择图片后会保存到 server/content-assets/&lt;slug&gt;/。</div>
         </section>
       </section>
     </main>
-    <script type="module" src="/assets/app.js?v=20260627-3"></script>
+    <script type="module" src="/assets/app.js?v=20260629-2"></script>
   </body>
 </html>

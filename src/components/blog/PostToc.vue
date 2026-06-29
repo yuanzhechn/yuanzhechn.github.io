@@ -1,5 +1,6 @@
 <template>
   <nav class="post-toc">
+    <p v-if="items.length === 0" class="toc-empty">暂无大纲</p>
     <ul class="toc-list">
       <li v-for="item in items" :key="item.id" :class="['toc-item', `toc-level-${item.level}`]">
         <a :href="`#${item.id}`" class="toc-link" @click.prevent="emit('navigate', item.id)">
@@ -57,5 +58,11 @@ const emit = defineEmits<{
 
 .toc-link:hover {
   color: var(--color-primary);
+}
+
+.toc-empty {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.86rem;
 }
 </style>

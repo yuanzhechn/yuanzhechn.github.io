@@ -33,6 +33,82 @@ function isExternalUrl(value: string): boolean {
   return /^(https?:)?\/\//i.test(value)
 }
 
+const allowedHtmlTags = new Set([
+  'a',
+  'abbr',
+  'b',
+  'br',
+  'caption',
+  'code',
+  'col',
+  'colgroup',
+  'del',
+  'details',
+  'div',
+  'em',
+  'figcaption',
+  'figure',
+  'hr',
+  'i',
+  'img',
+  'ins',
+  'kbd',
+  'li',
+  'mark',
+  'ol',
+  'p',
+  'pre',
+  's',
+  'span',
+  'strong',
+  'sub',
+  'summary',
+  'sup',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'u',
+  'ul',
+])
+
+const voidHtmlTags = new Set(['br', 'col', 'hr', 'img'])
+
+function htmlTagName(value: string): string | null {
+  return value.match(/^<\/?\s*([a-z][a-z0-9-]*)\b/i)?.[1].toLowerCase() ?? null
+}
+
+function isAllowedRawHtml(value: string): boolean {
+  return [...value.matchAll(/<\/?\s*([a-z][a-z0-9-]*)\b/gi)].every((match) =>
+    allowedHtmlTags.has(match[1].toLowerCase()),
+  )
+}
+
+function sanitizeHtml(value: string): string {
+  return value
+    .replace(/<\s*(script|style|iframe|object|embed|link|meta)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+    .replace(/<\s*(script|style|iframe|object|embed|link|meta)\b[^>]*\/?>/gi, '')
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s+(href|src)\s*=\s*(["']?)(javascript:|vbscript:|data:text\/html)[^"'\s>]*/gi, ' $1="#"')
+}
+
+function renderHtmlToken(text: string): string {
+  const tag = htmlTagName(text)
+  if (!tag || !allowedHtmlTags.has(tag) || !isAllowedRawHtml(text)) {
+    return `<code class="inline-code">${escapeHtml(text)}</code>`
+  }
+
+  const sanitized = sanitizeHtml(text)
+  if (voidHtmlTags.has(tag) || !/^\s*</.test(text) || /^<\/?\s*(a|abbr|b|br|code|del|em|i|img|ins|kbd|mark|s|span|strong|sub|sup|u)\b/i.test(text)) {
+    return sanitized
+  }
+
+  return `${sanitized}\n`
+}
+
 export function slugifyHeading(text: string): string {
   return text
     .normalize('NFKD')
@@ -113,7 +189,7 @@ export function renderMarkdown(md: string): string {
         return `<pre class="code-block md-fences"${langAttr}><code class="md-fencescode${language ? ` language-${escapeAttribute(language)}` : ''}">${escapeHtml(text)}</code></pre>\n`
       },
       html(token: Tokens.HTML | Tokens.Tag) {
-        return `<pre class="escaped-html"><code>${escapeHtml(token.text)}</code></pre>\n`
+        return renderHtmlToken(token.text)
       },
       codespan({ text }: Tokens.Codespan) {
         return `<code class="inline-code">${escapeHtml(text)}</code>`

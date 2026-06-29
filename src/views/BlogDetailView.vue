@@ -35,9 +35,10 @@
       </article>
     </template>
     <template #sidebar>
-      <aside class="sidebar-widgets">
-        <div v-if="toc.length > 0" class="widget">
-          <h3 class="widget-title">目录</h3>
+      <aside v-if="postStore.currentPost" class="sidebar-widgets">
+        <div class="widget outline-widget">
+          <p class="widget-eyebrow">Outline</p>
+          <h3 class="widget-title">文章大纲</h3>
           <PostToc :items="toc" @navigate="scrollToHeading" />
         </div>
       </aside>
@@ -46,8 +47,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import MarkdownThemePicker from '@/components/common/MarkdownThemePicker.vue'
@@ -158,17 +159,29 @@ watch(() => route.params.slug, loadPost, { immediate: true })
 .widget {
   background: color-mix(in srgb, var(--reader-surface) 92%, transparent);
   border-radius: var(--radius-md);
-  padding: var(--spacing-md);
+  padding: 1rem;
   border: 1px solid var(--color-border);
-  position: sticky;
-  top: calc(var(--header-height) + var(--spacing-lg));
   backdrop-filter: blur(14px);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--reader-text) 8%, transparent);
+}
+
+.outline-widget {
+  max-height: none;
+}
+
+.widget-eyebrow {
+  margin: 0 0 0.25rem;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .widget-title {
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: 0.85rem;
 }
 
 @media (max-width: 768px) {

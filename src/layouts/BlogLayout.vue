@@ -87,18 +87,29 @@ withDefaults(
 
 .blog-layout--immersive .blog-container {
   width: 100%;
-  max-width: 1240px;
-  min-height: calc(100vh - var(--header-height));
+  max-width: 1480px;
+  height: calc(100vh - var(--header-height));
+  overflow: hidden;
   margin: 0 auto;
   padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1rem, 4vw, 3rem) 3rem;
 }
 
 .blog-layout--immersive .blog-content {
   min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: clamp(0.5rem, 1.5vw, 1.25rem);
+  scrollbar-gutter: stable;
 }
 
 .blog-layout--immersive .blog-sidebar {
+  width: clamp(260px, 20vw, 340px);
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding-top: 0.15rem;
+  scrollbar-gutter: stable;
 }
 
 @media (max-width: 768px) {
@@ -110,7 +121,17 @@ withDefaults(
   }
 
   .blog-layout--immersive .blog-container {
+    height: auto;
+    min-height: calc(100vh - var(--header-height));
+    overflow: visible;
     padding: 1.25rem 1rem 2rem;
+  }
+
+  .blog-layout--immersive .blog-content,
+  .blog-layout--immersive .blog-sidebar {
+    height: auto;
+    overflow: visible;
+    padding-right: 0;
   }
 }
 </style>

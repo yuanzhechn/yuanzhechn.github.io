@@ -42,7 +42,10 @@ const publicDir = resolve(updateDir, 'public')
 
 const collections: Collection[] = ['posts', 'documents', 'challenges']
 
-const app = Fastify({ logger: true })
+const app = Fastify({
+  logger: true,
+  bodyLimit: 120 * 1024 * 1024,
+})
 
 const mimeTypes: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -90,6 +93,23 @@ function safeAssetPath(value: string) {
 
 function normalizeAssetName(value: string) {
   return safeAssetPath(value).join('/')
+}
+
+function stripCommonAssetRoot(assets: AssetPayload[] | undefined) {
+  if (!assets?.length) return []
+  const splitPaths = assets.map((asset) => normalizeAssetName(asset.name).split('/'))
+  let commonLength = 0
+  while (
+    splitPaths.every((segments) => segments.length > commonLength + 1) &&
+    splitPaths.every((segments) => segments[commonLength] === splitPaths[0][commonLength])
+  ) {
+    commonLength += 1
+  }
+
+  return assets.map((asset, index) => ({
+    ...asset,
+    name: splitPaths[index].slice(commonLength).join('/'),
+  }))
 }
 
 function shouldRewriteAssetLink(url: string) {
@@ -193,6 +213,7 @@ function validatePayload(input: unknown): ContentPayload {
   if (!payload.title?.trim()) throw new Error('标题不能为空')
   payload.slug = safeSlug(payload.slug || '', 'slug')
   payload.tags = Array.isArray(payload.tags) ? payload.tags.map((tag) => String(tag).trim()).filter(Boolean) : []
+  payload.assets = stripCommonAssetRoot(payload.assets)
   payload.content = typeof payload.content === 'string' ? payload.content : ''
   payload.isPublished = payload.isPublished !== false
 

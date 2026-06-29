@@ -29,10 +29,17 @@
 
     <template #sidebar>
       <aside v-if="challengeStore.currentChallenge" class="challenge-sidebar">
+        <section class="outline-section">
+          <p class="widget-eyebrow">Outline</p>
+          <h3>题目大纲</h3>
+          <PostToc :items="toc" @navigate="scrollToHeading" />
+        </section>
+        <section class="tag-section">
         <h3>题目标签</h3>
         <div class="sidebar-tags">
           <span v-for="tag in challengeStore.currentChallenge.tags" :key="tag"># {{ tag }}</span>
         </div>
+        </section>
         <RouterLink to="/challenges">返回 {{ challengeStore.currentChallenge.groupTitle }}</RouterLink>
       </aside>
     </template>
@@ -45,11 +52,13 @@ import { RouterLink, useRoute } from 'vue-router'
 import BlogLayout from '@/layouts/BlogLayout.vue'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
 import MarkdownThemePicker from '@/components/common/MarkdownThemePicker.vue'
+import PostToc from '@/components/blog/PostToc.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import { useChallengeStore } from '@/stores/challenge'
 import { useMarkdownTheme } from '@/composables/useMarkdownTheme'
 import { formatDate } from '@/utils/date'
+import { extractToc } from '@/utils/markdown'
 
 const route = useRoute()
 const challengeStore = useChallengeStore()
@@ -61,6 +70,10 @@ const difficultyLabel = computed(() => {
   return difficulty === 'hard' ? '挑战' : difficulty === 'medium' ? '进阶' : '入门'
 })
 
+const toc = computed(() =>
+  challengeStore.currentChallenge ? extractToc(challengeStore.currentChallenge.content) : [],
+)
+
 function loadChallenge() {
   const groupParam = route.params.groupSlug
   const slugParam = route.params.slug
@@ -69,6 +82,9 @@ function loadChallenge() {
   if (groupSlug && slug) challengeStore.fetchChallengeBySlug(groupSlug, slug)
 }
 
+function scrollToHeading(id: string) {
+  markdownRenderer.value?.scrollToHeading(id)
+}
 
 watch(() => [route.params.groupSlug, route.params.slug], loadChallenge, { immediate: true })
 
@@ -115,8 +131,6 @@ watch(() => [route.params.groupSlug, route.params.slug], loadChallenge, { immedi
 
 
 .challenge-sidebar {
-  position: sticky;
-  top: calc(var(--header-height) + var(--spacing-lg));
   display: grid;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
@@ -124,10 +138,26 @@ watch(() => [route.params.groupSlug, route.params.slug], loadChallenge, { immedi
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--reader-surface) 92%, transparent);
   backdrop-filter: blur(14px);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--reader-text) 8%, transparent);
 }
 
 .challenge-sidebar h3 {
   font-size: 0.95rem;
+}
+
+.outline-section,
+.tag-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.widget-eyebrow {
+  margin: 0 0 -0.45rem;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .sidebar-tags {
