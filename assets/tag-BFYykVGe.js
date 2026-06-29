@@ -1,0 +1,1 @@
+import{i as e,k as t}from"./index-CuvMcYrI.js";import{t as n}from"./api-BkPUrtTK.js";var r=e(`tag`,()=>{let e=t([]),r=t(!1);async function i(){if(!(e.value.length>0)){r.value=!0;try{e.value=await n.getTags()}finally{r.value=!1}}}return{tags:e,loading:r,fetchTags:i}});export{r as t};

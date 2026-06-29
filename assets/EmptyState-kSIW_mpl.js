@@ -1,0 +1,1 @@
+import{N as e,_ as t,d as n,m as r,x as i}from"./index-CuvMcYrI.js";import{n as a}from"./AppHeader-Dup6HtHN.js";var o={class:`empty-state`},s={class:`empty-text`},c=a(t({__name:`EmptyState`,props:{message:{}},setup(t){return(a,c)=>(i(),r(`div`,o,[c[0]||=n(`span`,{class:`empty-icon`},`📭`,-1),n(`p`,s,e(t.message),1)]))}}),[[`__scopeId`,`data-v-96837027`]]);export{c as t};

@@ -1,0 +1,1 @@
+import{i as e,k as t}from"./index-CuvMcYrI.js";import{t as n}from"./api-BkPUrtTK.js";var r=e(`category`,()=>{let e=t([]),r=t(!1);async function i(){if(!(e.value.length>0)){r.value=!0;try{e.value=await n.getCategories()}finally{r.value=!1}}}return{categories:e,loading:r,fetchCategories:i}});export{r as t};

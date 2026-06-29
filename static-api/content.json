@@ -1,0 +1,1266 @@
+{
+  "generatedAt": "2026-06-29T13:02:39.441Z",
+  "posts": [
+    {
+      "id": "docker-images-build",
+      "title": "创建镜像容器示例",
+      "slug": "docker-images-build",
+      "excerpt": "以Ubuntu 22.04 + CUDA 12.4.1为例，构建docker镜像，并创建适用于Isaac的容器",
+      "content": "## 创建镜像\n\n```bash\nmkdir -p /root/yz-ssh-docker\ncd /root/yz-ssh-docker\n\nvim Dockerfile\n```\n\n在vim中粘贴：\n\n```txt\n# 1. 基础镜像：官方的 Ubuntu 22.04 + CUDA 12.4.1 \nFROM nvidia/cuda:12.4.1-devel-ubuntu22.04\n\n# 2. 避免安装过程中弹出选择时区的互动窗口\nENV DEBIAN_FRONTEND=noninteractive\n\n# 3. 安装你指定的必备软件，以及 Isaac/Python 常用工具\n# 合并在一条指令里执行，最后清理缓存以缩小镜像体积\nRUN apt-get update && apt-get install -y \\\n    sudo \\\n    iputils-ping \\\n    net-tools \\\n    vim \\\n    openssh-client \\\n    openssh-server \\\n    vsftpd \\\n    git \\\n    git-lfs \\\n    wget \\\n    curl \\\n    python3 \\\n    python3-pip \\\n    libgl1 \\\n    libglib2.0-0 \\\n    && rm -rf /var/lib/apt/lists/*\n\n# 4. 初始化 git-lfs，并配置 SSH 允许 root 登录（初始密码：123456）\nRUN git lfs install \\\n    && mkdir /var/run/sshd \\\n    && echo 'root:123456' | chpasswd \\\n    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \\\n    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config\n\n# 5. 暴露 SSH 的 22 端口\nEXPOSE 22\n\n# 6. 容器启动时默认运行的命令：保持 SSH 服务在前台运行\nCMD [\"/usr/sbin/sshd\", \"-D\"]\n```\n\n构建镜像：\n\n```bash\ndocker build -t yz-ubuntu22.04-cuda12.4:latest .\n```\n\n## 创建容器\n\n建议不要用这个：\n\n```bash\ndocker run -itd \\\n  --name yuanzhe22.04 \\        #容器名\n  --gpus all \\\n  --shm-size=16g \\\n  -e NVIDIA_DRIVER_CAPABILITIES=all \\\n  -e NVIDIA_VISIBLE_DEVICES=all \\\n  -e ACCEPT_EULA=Y \\\n  -e DISPLAY=:0 \\\n  -e PRIVILEGED=true \\\n  --privileged \\\n  -p 5100:22 \\\n  -p 8011:8011 \\              # 记得错开端口，别冲突了\n  -p 8211:8211 \\\n  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \\\n  -v /data/isaac_project/users/yuanzhe:/workspace \\      # 挂载点，记得在users文件夹先创建用户的数据挂载文件夹\n  -v /data/isaac_project/shared:/shared_data \\          # 共享文件夹\n  yz-ubuntu22.04-cuda12.4:latest\n```\n\n### 然后创建用户\n\n在root：\n\n```bash\ndocker exec -it yuanzhe22.04 bash\nadduser yuanzhe           # 输入两次密码，然后一路回车\nexit\n```\n\n至此，即可用`ssh yuanzhe@10.200.212.242 -p 5100`登录\n\n### 权限问题\n\n用管理员身份登录：\n\n```powershell\nssh root@10.200.212.242 -p 5100\n```\n\n更改权限\n\n```bash\nusermod -aG sudo yuanzhe    # 加入管理员组\nchown -R yuanzhe:yuanzhe /workspace    # 给/workspace权限\nchmod -R 777 /shared_data          # 可读可写可执行\n```",
+      "category": "服务器",
+      "tags": [
+        "服务器运维"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 436,
+      "readingTime": 2,
+      "viewCount": 0
+    },
+    {
+      "id": "github-in-server",
+      "title": "在服务器上绑定github账号",
+      "slug": "github-in-server",
+      "excerpt": "在服务器上配置github的ssh提交",
+      "content": "## 配置Git用户名和邮箱\n\n```bash\ngit config --global user.name \"你的GitHub用户名\"\ngit config --global user.email \"你的GitHub邮箱\"\n```\n\n查看是否成功\n\n```bash\ngit config --global --list\n```\n\n## 在服务器生成SSH Key\n\n```bash\nssh-keygen -t ed25519 -C \"你的GitHub邮箱\"\n```\n\n一路回车，默认生成：\n\n```bash\n~/.ssh/id_ed25519\n~/.ssh/id_ed25519.pub\n```\n\n启动ssh-agent并添加私钥\n\n```bash\neval \"$(ssh-agent -s)\"\nssh-add ~/.ssh/id_ed25519\n```\n\n## 把公钥添加到github\n\n服务器执行\n\n```bash\ncat ~/.ssh/id_ed25519.pub       # 注意有pub是公钥\n```\n\n然后复制整行\n\n去github网页：\n\n```bash\n头像 → Settings → SSH and GPG keys → New SSH key\n```\n\n写个title，然后粘贴公钥\n\n## 测试服务器是否连接上github\n\n```bash\nssh -T git@github.com\n```\n\n## 使用ssh地址clone/pull私有仓库\n\n```bash\ngit clone git@github.com:你的用户名/仓库名.git\n```\n\n如果已经克隆过，这样设置，设置前后可以通过`git remote -v`查看变化。\n\n```bash\ngit remote set-url origin git@github.com:你的用户名/仓库名.git\n```",
+      "category": "git",
+      "tags": [
+        "git",
+        "github"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 238,
+      "readingTime": 1,
+      "viewCount": 0
+    },
+    {
+      "id": "install-ssh-server",
+      "title": "安装ssh服务端",
+      "slug": "install-ssh-server",
+      "excerpt": "安装ssh服务端记录",
+      "content": "## 进入容器\n\n```bash\ndocker exec -it 容器名 bash\n```\n\n## 安装\n\n```bash\napt update\napt install -y openssh-server\n```\n\n创建sshd运行目录\n\n```bash\nmkdir -p /run/sshd\n```\n\n## 设置root密码\n\n```bash\npasswd root\n```\n\n## 允许root密码登录\n\n```bash\nvim /etc/ssh/sshd_config\n```\n\n添加\n\n```\nPermitRootLogin yes\nPasswordAuthentication yes\nUsePAM yes\n```\n\n## 启动ssh服务\n\n```bash\nservice ssh start\n```\n\n检查是否启动\n\n```bash\nps aux | grep sshd\n# 或者\nss -tlnp | grep :22\n```",
+      "category": "服务器",
+      "tags": [
+        "服务器"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 88,
+      "readingTime": 1,
+      "viewCount": 0
+    },
+    {
+      "id": "isaac-env-build",
+      "title": "Isaac环境搭建",
+      "slug": "isaac-env-build",
+      "excerpt": "搭建Isaac环境",
+      "content": "## 1.创建容器\n\n### 1.1.创建\n\n**先创建对应挂载文件夹！！！**\n\n记得改第一行容器名\n\n7-9行错开端口\n\n10-12行先创建挂载文件夹，再映射\n\n```bash\ndocker run --name yuanzhe_isaac -itd \\\n    --gpus all \\\n    -e \"ACCEPT_EULA=Y\" \\\n    --shm-size=16g \\\n    -e \"PRIVILEGED=true\" \\\n    -e \"NVIDIA_DRIVER_CAPABILITIES=all\" \\\n    -p 8211:8211 \\\n    -p 8011:8011 \\\n    -p 5100:22 \\\n    -v /data/isaac_project/users/yuanzhe:/workspace \\\n    -v /data/isaac_project/users/yuanzhe/ov_data:/root/.local/share/ov/data \\\n    -v /data/isaac_project/shared:/shared_data \\\n    nvcr.io/nvidia/isaac-sim:5.1.0 bash\n```\n\n### 1.2.安装ssh\n\n**安装之前建议先看5.1，不然你会后悔的**\n\n依旧在宿主机内：（用root权限进入）\n\n```bash\ndocker exec -it -u root yuanzhe_isaac bash\n```\n\n安装ssh\n\n```bash\napt update && apt install -y openssh-server\n# 进度条停在68%时，选上海时区，要不然时间看不懂\n\n\n# 配置并启动\nmkdir -p /var/run/sshd\necho 'root:123456' | chpasswd\nsed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config\nsed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config\nservice ssh start\n```\n\n>\n>\n>在windows运行ssh，报错如下的话\n>\n>```\n>(base) PS C:\\Users\\yz> ssh root@10.200.212.242 -p 5100\n>@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n>@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @\n>@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n>IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!\n>Someone could be eavesdropping on you right now (man-in-the-middle attack)!\n>It is also possible that a host key has just been changed.\n>The fingerprint for the ED25519 key sent by the remote host is\n>SHA256:nSwW3mBoldWkAEmlTZ+zZ7a5EJTozDSELAVXt8dPPTk.\n>Please contact your system administrator.\n>Add correct host key in C:\\\\Users\\\\yz/.ssh/known_hosts to get rid of this message.\n>Offending ECDSA key in C:\\\\Users\\\\yz/.ssh/known_hosts:47\n>Host key for [10.200.212.242]:5100 has changed and you have requested strict checking.\n>Host key verification failed.\n>```\n>\n>可运行下述命令，删除旧指纹\n>\n>```powershell\n>ssh-keygen -R \"[10.200.212.242]:5100\"\n>```\n>\n>\n\n再配置一下环境变量：\n\n```bash\necho 'export ENABLE_EGL=1' >> ~/.bashrc\necho 'export DISPLAY=:0' >> ~/.bashrc\necho 'export ACCEPT_EULA=Y' >> ~/.bashrc\necho 'export OMNI_KIT_ALLOW_ROOT=1' >> ~/.bashrc\n# 告诉 Isaac Sim / Isaac Lab，不要去连云端Assets资源，直接用本地绝对路径\necho 'export ISAAC_NUCLEUS_DIR=\"/shared_data/Assets\"' >> ~/.bashrc\necho 'export ISAACLAB_NUCLEUS_DIR=\"/shared_data/Assets\"' >> ~/.bashrc\nsource ~/.bashrc\n```\n\n**建议直接用root登录，不要创用户**\n\n\n\n\n## 2.安装Isaac Lab\n\n```bash\ncd /workspace/IsaacLab\n```\n\n配置环境变量：\n\n```bash\ncat << 'EOF' >> ~/.bashrc\n\n# ==========================================\n# Isaac Sim & Isaac Lab Environment Variables\n# ==========================================\n# 指定 Isaac Sim 引擎本体的绝对路径\nexport ISAACSIM_PATH=\"/isaac-sim\"\n# 指定你刚刚克隆的 Isaac Lab 路径\nexport ISAACLAB_PATH=\"/workspace/IsaacLab\"\n\n# 设置快捷命令 (Alias)\nalias isaacsim_python=\"${ISAACSIM_PATH}/python.sh\"\nalias isaaclab=\"${ISAACLAB_PATH}/isaaclab.sh\"\nEOF\n\n# 使环境变量立即生效\nsource ~/.bashrc\n```\n\n先用软链接解决一下路径问题\n\n```bash\n# 1. 确保你在 Isaac Lab 目录下\ncd /workspace/IsaacLab\n\n# 2. 创建软链接，将容器内的 /isaac-sim 映射到当前目录的 _isaac_sim\nln -s /isaac-sim _isaac_sim\n\n# 3. 检查一下链接是否成功（终端会显示 _isaac_sim -> /isaac-sim）\nls -al _isaac_sim\n```\n\n提前把git装好\n\n```bash\napt-get update && apt-get install -y git\n```\n\n换源\n\n```bash\n# 为 Isaac Sim 的内置 Python 设置全局清华源\n/isaac-sim/python.sh -m pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple\n```\n\nIsaac Lab编译安装\n\n```bash\n# 确保在 Isaac Lab 目录下\ncd $ISAACLAB_PATH\n\n# 建立软链接并安装 Isaac Lab 的 Python 依赖\n# (这会将 Isaac Lab 的包注册到 Isaac Sim 的 Python 环境中)\n./isaaclab.sh --install\n```\n\n\n## 3.使用方法\n\n### 3.1.Isaac Sim基础使用方法\n\n- 运行py文件\n\n    例如：我的workspace有个run_and_video.py文件\n\n    ```bash\n    /isaac-sim/python.sh /workspace/run_and_video.py\n    ```\n\n- 安装python依赖包方法\n\n    ```bash\n    /isaac-sim/python.sh -m pip install 包的名字\n    ```\n\n- 安装软件方法：（我忘了安装apt了没，看着办吧，没安装就用apt-get安装一下）\n\n    由于是用root登录的，不用加sudo（也没安装好像）\n\n    ```bash\n    apt-get update\n    apt-get install -y 软件的名字\n    ```\n### 3.2.Isaac Lab使用方法\n\n还有测试环节：\n\n- 空场景\n\n    `./isaaclab.sh -p scripts/tutorials/00_sim/create_empty.py --headless`\n\n- 运行倒立摆任务训练，开启无头模式和视频录制:\n   `./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Cartpole-v0 --headless --video`\n\n   查看生成的视频文件\t\n\n   `ls -lh /workspace/IsaacLab/logs/rsl_rl/cartpole/*/videos/`\n\n- 还有机器狗：\n\n    `./isaaclab.sh -p scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Velocity-Flat-Anymal-C-v0 --headless --video`\n\n    存储路径：\n\n    `/workspace/IsaacLab/logs/rsl_rl/anymal_c_flat`\n\n\n## 4.使用规范\n\n- 在各自容器内`/workspace`下写代码，防止误删容器造成数据丢失\n\n- IsaacSim软件在容器内路径`/isaac-sim`下，使用方法见上节\n\n- IsaacLab在容器内路径`/workspace/IsaacLab`，使用示例见上节\n\n- 容器内路径`/workspace/ov_data`是缓存文件，**勿动这个文件夹**\n\n- 容器内路径`/shared_data`是共享数据文件夹，主要存放资源文件（在`/shared_data/Asset`）（就不用联网下载了），另外也可以互相传东西，**谨慎使用指令！！！**\n\n- 宿主机路径`/data/isaac_project/shared/BackUp`是备份文件夹，防止把自己环境搞崩了克隆缓慢，对应的自己容器内`/shared_data/BackUp`，里面东西勿动\n\n- 代码中调用模型的时候就去上述共享文件及调用就行，此处**详见5.4！！！**\n\n- 代码中最后记得关线程（这部分我目前在**5.1**已经设置，**不用管了**）要不然服务器一直在空转，占用资源，例如：\n\n    ```python\n    import sys\n    import os\n    \n    # 1. 尝试优雅关闭\n    simulation_app.close()\n    print(\"引擎已关闭。\")\n    \n    # 2. 拔电源！强制操作系统的内核直接回收这个进程的所有 CPU 和内存！\n    print(\"强行干掉底层僵尸进程，释放 CPU...\")\n    os._exit(0) \n    ```\n\n\n\n\n\n## 5.额外处理方法或常见报错\n\n### 5.1.CPU占用较高情况\n\n可以在1pandel的命令的Command设置`sleep infinity`，下一个Entrypoint留空。\n\n然后再次执行**1.2安装ssh步骤**\n\n> 此处为我自己留样，不用管：\n>\n> Command：bash\n>\n> Entrypoint：/isaac-sim/runheadless.sh\n\n### 5.2.每次用1pandel重新构建容器时要重新安装ssh，配置环境变量\n\n当然你安装的所有软件包都不见了\n\n### 5.3.报错 `isaacsim.asset.importer.urdf`\n\n这是一个**软件功能扩展插件 (Extension)**，\n\n通常是网络问题，我备了个份在/BackUp文件夹里，自行`cp`出来\n\n然后假设你放在了`/workspace/`下，即宿主机的`/data/isaac_project/users/<用户名>`：\n\n```bash\n# 1. 进入报错日志中提示的插件缓存目录\ncd /isaac-sim/kit/data/Kit/Isaac-Sim/5.1/exts/3/\n\n# 2. 创建这个插件的专属文件夹（名字必须和报错中要求的一模一样）\nmkdir isaacsim.asset.importer.urdf-2.4.31\n\n# 3. 将传进来的包解压到这个文件夹中\nunzip /workspace/isaacsim.asset.importer.urdf-2.4.31+107.3.3.lx64.r.cp311.zip -d isaacsim.asset.importer.urdf-2.4.31/\n```\n\n### 5.4.好像不一定找我的本地Assets，还是会联网找\n\n强制重定向！！！\n\n打开`/workspace/IsaacLab/source/isaaclab/isaaclab/utils/assets.py`\n\n修改25行左右：\n\n修改前：\n\n```python\nNUCLEUS_ASSET_ROOT_DIR = carb.settings.get_settings().get(\"/persistent/isaac/asset_root/cloud\")\n\"\"\"Path to the root directory on the Nucleus Server.\"\"\"\n\nNVIDIA_NUCLEUS_DIR = f\"{NUCLEUS_ASSET_ROOT_DIR}/NVIDIA\"\n\"\"\"Path to the root directory on the NVIDIA Nucleus Server.\"\"\"\n\nISAAC_NUCLEUS_DIR = f\"{NUCLEUS_ASSET_ROOT_DIR}/Isaac\"\n\"\"\"Path to the ``Isaac`` directory on the NVIDIA Nucleus Server.\"\"\"\n\nISAACLAB_NUCLEUS_DIR = f\"{ISAAC_NUCLEUS_DIR}/IsaacLab\"\n\"\"\"Path to the ``Isaac/IsaacLab`` directory on the NVIDIA Nucleus Server.\"\"\"\n```\n\n修改为：\n\n```python\n# ================= 强制改为本地脱机路径 =================\nNUCLEUS_ASSET_ROOT_DIR = \"/shared_data/Assets/Isaac/5.1\"\n\nNVIDIA_NUCLEUS_DIR = f\"{NUCLEUS_ASSET_ROOT_DIR}/NVIDIA\"\n\nISAAC_NUCLEUS_DIR = f\"{NUCLEUS_ASSET_ROOT_DIR}/Isaac\"\n\nISAACLAB_NUCLEUS_DIR = f\"{ISAAC_NUCLEUS_DIR}/IsaacLab\"\n# ========================================================\n```\n\n然后重新编译\n\n```bash\ncd /workspace/IsaacLab\n./isaaclab.sh --install\n```\n\n\n\n## 6.其他\n\n挂载方式\n\n```\n宿主机                                  容器\n/data/isaac_project/users/用户         :/workspace \\\n/data/isaac_project/users/用户/ov_data :/root/.local/share/ov/data \\\n/data/isaac_project/shared            :/shared_data \\\n\nIsaacSim在各自的/isaac-sim下\nshared文件夹放Asset文件\n```\n\n\n\n\n\n此时时间为15:14 2026/4/1\n\n版本号v3.0\n\nby yz",
+      "category": "服务器",
+      "tags": [
+        "服务器运维",
+        "Isaac"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 1760,
+      "readingTime": 6,
+      "viewCount": 0
+    },
+    {
+      "id": "nat-hole-punching",
+      "title": "p2p直连打洞",
+      "slug": "nat-hole-punching",
+      "excerpt": "不良林20251213视频记录",
+      "content": "# 20251213_【建议收藏】 一次搞懂所有NAT类型，实战各NAT类型之间的打洞可行性，通过p2p vpn实现无公网ip穿透家庭内网，p2p直连打洞，游戏联机，BT下载\n\n1. 关闭代理工具\n2. 访问`natchecker.com`进行nat类型检测\n\n\n\n\n\n# 🌐 全面解析 NAT 打洞与 P2P 组网技术笔记\n\n**视频主题**：深入理解 NAT 类型（STUN）、P2P 直连原理及 Tailscale/EasyTier 实战  \n**主讲人**：不良林  \n**核心关键词**：NAT穿透, STUN, P2P, Full Cone, Symmetric NAT, Tailscale, EasyTier\n\n---\n\n## 📖 第一部分：NAT 理论基础与分类\n\n### 1.1 为什么需要 NAT (Network Address Translation)\n由于 IPv4 地址资源枯竭，绝大多数用户无法拥有独立的公网 IP。\n- **内网 (LAN)**：设备拥有如 `192.168.x.x` 的私有 IP。\n- **公网 (WAN)**：路由器/光猫拥有唯一的公网 IP。\n- **作用**：路由器通过 NAT 技术，将内网设备的 `内网IP:端口` 映射为 `公网IP:端口`，从而实现上网。\n\n### 1.2 NAT 的两个核心行为\n理解 NAT 类型，必须从以下两个维度进行判定：\n1.  **映射行为 (Mapping Behavior)**：内网设备发出的请求，路由器如何分配出口端口？\n2.  **过滤行为 (Filtering Behavior)**：外部发回的数据包，路由器如何决定是否放行给内网设备？\n\n### 1.3 四种经典的 NAT 类型 (RFC 3489 定义)\n\n视频中重点对比了四种类型，安全性由低到高，穿透难度由低到高：\n\n#### 🟢 NAT1: 全锥型 (Full Cone NAT)\n- **定义**：最宽松的 NAT。\n- **映射**：内网 `IP:Port` 映射到公网 `IP:Port` 后，该映射固定不变。\n- **过滤**：**无限制**（Endpoint-Independent Filtering）。\n- **特征**：一旦映射建立，**任何**外部主机都可以通过该公网 `IP:Port` 向内网设备发送数据。\n- **打洞难度**：极低（几乎等同于拥有公网 IP）。\n\n#### 🟡 NAT2: IP限制锥型 (Restricted Cone NAT)\n- **别名**：地址限制锥型。\n- **映射**：映射关系固定（同 Full Cone）。\n- **过滤**：**IP 受限**（Address-Dependent Filtering）。\n- **特征**：只有内网设备**主动发送过数据**的目标 IP，其发回的数据包才会被接收。其他 IP 发来的会被丢弃。\n- **打洞难度**：低。\n\n#### 🟠 NAT3: 端口限制锥型 (Port-Restricted Cone NAT)\n- **定义**：家用路由器最常见的类型。\n- **映射**：映射关系固定（同 Full Cone）。\n- **过滤**：**IP 和端口均受限**（Address and Port-Dependent Filtering）。\n- **特征**：只有内网设备主动发给 `目标IP:目标Port` 的数据，该目标必须用**完全相同**的 `IP:Port` 回复才能通过。\n- **打洞难度**：中等（需要准确预测或获知端口）。\n\n#### 🔴 NAT4: 对称型 (Symmetric NAT)\n- **定义**：最严格的 NAT，企业级路由常见。\n- **映射**：**动态映射**（Address and Port-Dependent Mapping）。\n    - 内网设备即使使用同一个源端口，发往**不同**的目标 IP/Port 时，路由器会分配**不同**的公网端口。\n- **过滤**：IP 和端口均受限。\n- **特征**：端口随机性强，外部无法预测路由器分配的公网端口。\n- **打洞难度**：极高（通常需要中继/Relay）。\n\n---\n\n## 🛠 第二部分：STUN 打洞原理 (Hole Punching)\n\n### 2.1 打洞的核心逻辑\nP2P（Peer-to-Peer）连接的目标是让两台位于 NAT 后的设备直接通信，不经过中转服务器。\n\n1.  **信令服务器 (Signal/STUN Server)**：\n    - 双方设备（A 和 B）首先连接公网的 STUN 服务器。\n    - STUN 服务器告知 A：你的公网出口是 `1.1.1.1:100`。\n    - STUN 服务器告知 B：你的公网出口是 `2.2.2.2:200`。\n    - 双方交换这些信息。\n\n2.  **建立连接 (Cone NAT 场景)**：\n    - A 向 B 的公网地址 `2.2.2.2:200` 发包（此时 A 的路由器留下了“洞”）。\n    - B 向 A 的公网地址 `1.1.1.1:100` 发包。\n    - 由于 Cone NAT 的映射是不变的，且只要双方互相发包，防火墙规则就会放行，P2P 连接建立成功。\n\n### 2.2 对称型 NAT (Symmetric) 的死结\n- 如果 A 是对称型 NAT：\n    - A 连接 STUN 服务器时，路由器分配端口 `100`。\n    - A 尝试连接 B 时，因为目标地址变了（从 STUN 服务器变成了 B），路由器会**重新分配**一个新端口（例如 `105`）。\n    - 此时 B 依然往旧端口 `100` 发包，导致连接失败。\n- **端口猜测**：部分软件尝试猜测对称 NAT 分配端口的规律（如顺序递增），但这并不可靠。\n\n### 2.3 NAT 连通性矩阵 (能否直连)\n\n| 源 \\ 目标 | NAT1 (Full) | NAT2 (IP) | NAT3 (Port) |     NAT4 (Symmetric)      |\n| :-------- | :---------: | :-------: | :---------: | :-----------------------: |\n| **NAT1**  |   ✅ 直连    |  ✅ 直连   |   ✅ 直连    |          ✅ 直连           |\n| **NAT2**  |   ✅ 直连    |  ✅ 直连   |   ✅ 直连    |          ✅ 直连           |\n| **NAT3**  |   ✅ 直连    |  ✅ 直连   |   ✅ 直连    |    ❌ 困难 (通常需中继)    |\n| **NAT4**  |   ✅ 直连    |  ✅ 直连   |   ❌ 困难    | ❌ **无法直连** (必须中继) |\n\n> **结论**：一方是 Full Cone 时，连通性最好；双方都是 Symmetric NAT 时，基本无解，必须走服务器中转。\n\n---\n\n## 💻 第三部分：工具实战演示\n\n### 3.1 NAT 类型检测工具`natchecker.com`\n\n- **工具名称**：NAT Checker / NAT Type Tester\n- **原理**：通过向不同 IP 的 STUN 服务器发送请求，观察回包的 IP 和 Port 变化来判断 NAT 类型。\n- **重要提示**：浏览器的检测结果可能受插件或 WebRTC 限制影响，建议使用命令行工具或专用软件更准确。\n\n### 3.2 Tailscale (基于 WireGuard 的虚拟组网)`tailscale.com`\n- **特点**：\n    - 零配置，基于账号体系。\n    - 智能选择路径：优先 P2P，失败则走 DERP 中继。\n- **演示流程**：\n    1.  Mac 和 Android 手机登录同一账号。\n    2.  在终端使用 `tailscale status` 查看节点状态。\n    3.  使用 `tailscale ping <对端IP>` 检测连接方式。\n- **结果分析**：\n    - `via DERP(sfo)`：表示走了中继服务器（延迟高，速度受限）。\n    - `direct`：表示 P2P 打洞成功（直连，速度快）。\n    - **案例**：视频中演示了 NAT4 环境下 Tailscale 能够实现 Direct 直连（通过端口预测或生日攻击等高级算法），但在极端的 NAT4-NAT4 双端对称环境下仍可能回退到 DERP。\n\n### 3.3 EasyTier (去中心化组网新秀)`easytier.cn`\n- **特点**：\n    - 纯 Go/Rust 编写（视频中为 Rust 版本），无需中心化登录服务器。\n    - 支持手动指定公共节点（Public Peers）。\n    - 界面简洁，显示直观的 NAT 类型。\n- **演示流程**：\n    1.  输入相同的 `Network Name` 和 `Secret`。\n    2.  添加公共节点 URL 以辅助打洞。\n    3.  启动服务，观察 UI 显示的连接状态。\n- **P2P 表现**：\n    - UI 会明确显示当前链路是 `p2p` 还是 `relay`。\n    - 视频演示中，当模拟极端 NAT4 环境时，EasyTier 显示无法建立 P2P 连接，必须依赖中转。\n\n---\n\n## 📝 总结与网络优化建议\n\n1.  **公网 IP 是王道**：如果有公网 IP，直接做端口映射（Port Forwarding），这就是 NAT1 效果，连接最稳。\n2.  **开启 DMZ**：如果路由器支持，将需要 P2P 的设备设置为 DMZ 主机，可将 NAT 类型提升为 NAT1 (Full Cone)。\n3.  **开启 UPnP**：通用即插即用，允许软件自动向路由器申请端口映射，有助于将 NAT3 变为 NAT2 或 NAT1。\n4.  **运营商因素**：\n    - 移动宽带/大内网通常是 NAT3 或 NAT4，打洞困难。\n    - 尽量争取光猫改桥接，用性能较好的路由器拨号。\n5.  **工具选择**：\n    - **Tailscale/ZeroTier**：适合小白，通过中继保底，体验平滑。\n    - **EasyTier/N2N**：适合喜欢折腾、去中心化或自建中转节点的用户。\n\n### 💡 附录：常用命令 (Tailscale)\n```bash\n# 查看节点详细状态\ntailscale status\n\n# 测试连通性及连接模式（关键命令）\ntailscale ping <Hostname或IP>\n# 输出示例：\n# pong from server-a (100.x.x.x) via DERP(tok) in 120ms  <-- 走了中继\n# pong from server-a (100.x.x.x) via 1.2.3.4:12345 in 30ms <-- P2P直连\n\n```\n\n### 参考资料\n\n[中心化逻辑部署 Easytier - 无 Web 管理](https://blog.mitsea.com/1b37bda595c580c989edf890db8e0b19/)",
+      "category": "计算机网络",
+      "tags": [
+        "计算机网络"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 1888,
+      "readingTime": 7,
+      "viewCount": 0
+    },
+    {
+      "id": "package-load-images",
+      "title": "打包及加载镜像",
+      "slug": "package-load-images",
+      "excerpt": "打包及加载docker镜像",
+      "content": "如何把一个服务器的镜像传到另一个服务器\n\n本文具体是一台服务器（服务器1）上之前拉取了xfce镜像，版本是Ubuntu24.04LTS；另一台（服务器2）拉取较晚，版本为Ubuntu26.04LTS，由于版本需要，故拉取旧版本到服务器2。\n\n## 打标记\n\n在服务器2上打标记，防止由于镜像名相同而冲突\n\n```bash\ndocker tag linuxserver/webtop:ubuntu-xfce webtop-ubuntu-xfce:26.04\n```\n\n同样，给服务器1的镜像也打上标记\n\n## 打包\n\n在服务器1上\n\n```bash\ndocker save webtop-ubuntu-xfce:24.04 | gzip > webtop-ubuntu-xfce-24.04.tar.gz\n```\n\n检查文件\n\n```bash\nls -lh webtop-ubuntu-xfce-24.04.tar.gz\n```\n\n## 传输\n\n在服务器1：\n\n```bash\nscp webtop-ubuntu-xfce-24.04.tar.gz root@服务器2:~/\n```\n\n## 加载\n\n在服务器2：\n\n```bash\ndocker load -i /workspace/webtop-ubuntu-xfce-24.04.tar.gz\n```\n\n检查：\n\n```bash\ndocker images | grep webtop\n```\n\n检查镜像的Ubuntu版本：\n\n```bash\ndocker run --rm webtop-ubuntu-xfce:24.04 cat /etc/os-release\n# 临时创建容器，检查完就删除\n```",
+      "category": "服务器",
+      "tags": [
+        "服务器运维"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 226,
+      "readingTime": 1,
+      "viewCount": 0
+    },
+    {
+      "id": "server-data-move",
+      "title": "服务器磁盘爆满数据迁移",
+      "slug": "server-data-move",
+      "excerpt": "磁盘爆满数据迁移",
+      "content": "### 查看整体\n\n```bash\ndf -h\n```\n\n查看哪个目录的盘爆了\n\n### 查看该目录下谁比较大\n\n以根目录为例\n\n```bash\nsudo du -h --max-depth=1 / 2>/dev/null | sort -hr\n```\n\n然后逐层排查......\n\n### 转移\n\n例如在上次确认为/home/docker的数据量很大，如果/data下很充足时：\n\n```bash\nmkdir -p /data/home_docker\n```\n\n用rsync复制（不要用mv）:\n\n```bash\nrsync -aP /home/docker/ /data/home_docker/\n```\n\n注意不要漏掉后面的“/”\n\n简单验证：\n\n```bash\ndu -sh /home/docker\ndu -sh /data/home_docker\n```\n\n大小应该大致相同\n\n或者验证文件数量\n\n```bash\nfind /home/docker | wc -l\nfind /data/home_docker | wc -l\n```\n\n也可以再跑一次`rsync -aP /home/docker/ /data/home_docker/`，第二次比较快，只是同步变化\n\n\n### 备份原来目录\n\n不要直接删！！！\n\n重命名：\n\n```bash\nmv /home/docker /home/docker.bak\n```\n\n### 建立软链接\n\n```bash\nln -s /data/home_docker /home/docker\n```\n\n### 验证\n\n可以如下验证\n\n```bash\nls /home/docker\n\ncd /home/docker/abc\n```\n\n### 删除备份\n\n可在几天使用无异常后删除备份\n\n```bash\nrm -rf /home/docker.bak\n```",
+      "category": "服务器",
+      "tags": [
+        "服务器运维"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 248,
+      "readingTime": 1,
+      "viewCount": 0
+    },
+    {
+      "id": "ssh-reverse-port-forwarding",
+      "title": "ssh反向端口转发",
+      "slug": "ssh-reverse-port-forwarding",
+      "excerpt": "转发本地代理到服务器上",
+      "content": "### 本地电脑执行\n\n```powershell\nssh -N -R 7897:127.0.0.1:7897 用户名@服务器IP -p SSH端口\n# 第一个7897是映射到服务器的端口，第二个四你自己本地代理端口（根据自己请款改）\n```\n\n此powershell保持开启\n\n### 服务器设置\n\n```bash\nexport HTTP_PROXY=http://127.0.0.1:7897\nexport HTTPS_PROXY=http://127.0.0.1:7897\nexport ALL_PROXY=http://127.0.0.1:7897\n\nexport http_proxy=http://127.0.0.1:7897\nexport https_proxy=http://127.0.0.1:7897\nexport all_proxy=http://127.0.0.1:7897\n\nexport NODE_USE_ENV_PROXY=1\nexport GLOBAL_AGENT_HTTP_PROXY=http://127.0.0.1:7897\n```\n\n上述可以写入文件：`~/.proxy_codex`\n\n以下写入`~/.unproxy`\n\n```bash\nunset HTTP_PROXY\nunset HTTPS_PROXY\nunset ALL_PROXY\n\nunset http_proxy\nunset https_proxy\nunset all_proxy\n\nunset NODE_USE_ENV_PROXY\nunset GLOBAL_AGENT_HTTP_PROXY\n```\n\n\n### 测试\n\n```bash\ncurl -I https://api.openai.com\n```",
+      "category": "服务器",
+      "tags": [
+        "服务器"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 154,
+      "readingTime": 1,
+      "viewCount": 0
+    },
+    {
+      "id": "ssh-secret-key",
+      "title": "通过密钥ssh登录服务器",
+      "slug": "ssh-secret-key",
+      "excerpt": "使用密钥登录服务器的配置方法",
+      "content": "# 密钥登录配置指南\n\n## 在自己电脑上操作\n\n### 1. 生成密钥（使用 Ed25519 算法）\n\n```bash\nssh-keygen -t ed25519 -C \"你的邮箱@example.com\"\n```\n\n会弹出消息让你输入：\n- **第一个**是密钥保存位置：直接按回车使用默认路径（如 `~/.ssh/id_ed25519`），防止之后找不到。\n- **第二个**是设置密码（passphrase）。\n- **第三个**是确认密码。\n\n---\n\n### 2. 启动 SSH 代理并添加密钥  \n> （我这边用的是 Windows PowerShell；如果不是，可能需要其他指令）\n\n```powershell\n# 启动 ssh-agent 服务\nStart-Service ssh-agent\n\n# 添加密钥\nssh-add ~/.ssh/id_ed25519\n```\n\n如果提示：\n```\n~/.ssh/id_ed25519: No such file or directory\n```\n可能是路径识别问题，可以改用完整路径，例如：\n```powershell\nssh-add C:\\Users\\用户名\\.ssh\\id_ed25519\n```\n\n然后再次输入密码，即可成功添加密钥。\n\n查看公钥内容：\n```bash\ncat ~/.ssh/id_ed25519.pub\n```\n\n---\n\n### 3. 将生成的公钥添加到服务器的 `~/.ssh/authorized_keys` 文件中\n\n你可以使用以下命令自动完成（推荐）：\n```bash\nssh-copy-id User@IP\n```\n\n也可以手动操作：\n\n1. 在本地电脑查看公钥内容：\n   ```bash\n   cat ~/.ssh/id_ed25519.pub\n   ```\n\n2. 登录服务器，检查 `~/.ssh/authorized_keys` 是否存在：\n   ```bash\n   # 如果不存在，就创建一个\n   touch ~/.ssh/authorized_keys\n   ```\n\n3. 将公钥内容复制到 `authorized_keys` 文件中：\n   ```bash\n   echo \"粘贴你的公钥内容\" >> ~/.ssh/authorized_keys\n   ```\n   > **注意**：也可以直接编辑文件粘贴进去。  \n   > **务必粘贴完整公钥内容**，不要只复制中间部分。  \n   > 正确格式应为：  \n   > `ssh-ed25519 xxxxx xxx.com`\n\n4. 设置正确权限：\n   ```bash\n   chmod 700 ~/.ssh\n   chmod 600 ~/.ssh/authorized_keys\n   ```\n\n---\n\n### 4. 测试登录\n\n#### 修改服务器端的 SSH 配置文件：\n```bash\nsudo vim /etc/ssh/sshd_config\n```\n\n确保以下配置项：\n```conf\nPasswordAuthentication no        # 禁用密码登录\nPubkeyAuthentication yes         # 启用密钥登录\nPermitRootLogin prohibit-password  # root 只能用密钥登录\n```\n\n> **建议**：先保持 `PasswordAuthentication yes`，测试密钥登录成功后再设为 `no`。\n\n修改完成后重启 SSH 服务：\n```bash\nsudo systemctl restart sshd\n```\n\n#### 在自己电脑上测试：\n```bash\nssh User@IP\n```\n看看是否可以免密登录。\n\n---\n\n## 结束后操作\n\n### 1. 备份私钥\n```bash\ncp ~/.ssh/id_ed25519 ~/.ssh/id_ed25519.backup\n```\n\n### 2. 永久添加密钥到 ssh-agent（Windows PowerShell）\n```powershell\n# 设置 ssh-agent 自动启动\nGet-Service ssh-agent | Set-Service -StartupType Automatic\n\n# 检查是否已运行\nGet-Service ssh-agent\n\n# 如果没有运行，就启动它\nStart-Service ssh-agent\n\n# 添加密钥（使用环境变量获取用户目录）\nssh-add $env:USERPROFILE\\.ssh\\id_ed25519\n```\n\n### 3. （可选）创建 SSH 别名\n\n在自己电脑操作：\n\n1. 确保 `~/.ssh/config` 文件存在；如果不存在，就创建一个。\n\n2. 在其中写入以下内容：\n```conf\nHost master03                     # 别名\n    HostName xxx.xxx.xxx.xxx       # 服务器 IP\n    User root                     # 用户名\n    IdentityFile ~/.ssh/id_ed25519  # 私钥位置，尽量使用绝对路径，防止识别不了\n    IdentitiesOnly yes            # 只使用指定的身份文件\n\nHost *\n    AddKeysToAgent yes\n    ServerAliveInterval 60\n    ServerAliveCountMax 3\n```\n\n> 配置完成后，即可通过 `ssh master03` 快速连接服务器。\n\n---\n\n✅ 所有原始内容均已保留，仅优化了格式、层级和可读性。",
+      "category": "服务器",
+      "tags": [
+        "服务器运维"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 740,
+      "readingTime": 3,
+      "viewCount": 0
+    },
+    {
+      "id": "wsl-cmd",
+      "title": "WSL常用指令",
+      "slug": "wsl-cmd",
+      "excerpt": "wsl中一些常用指令",
+      "content": "`wsl --list -v`查看当前安装的所有linux版本\n\n在cmd中打开：`wsl -d 子系统名字`\n\n彻底关闭：`wsl --shutdown`\n\n卸载子系统`wsl --unregister 子系统名字`\n\n备份：`wsl --export Ubuntu ubuntu.tar`\n\n导入：`wsl --import 目标名字 导入路径 备份路径`\n\n> 例`wsl --import Ubuntu2 D:/wsl C:\\Users\\93917\\Desktop\\ubuntu.tar`\n\n允许可视化窗口展示（wslg）：\n\n`sudo apt-get install gimp`，然后直接输入gimp打开",
+      "category": "wsl",
+      "tags": [
+        "wsl"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 103,
+      "readingTime": 1,
+      "viewCount": 0
+    },
+    {
+      "id": "xfce-docker-pull-and-build",
+      "title": "xfce容器拉取与构建",
+      "slug": "xfce-docker-pull-and-build",
+      "excerpt": "为Issac强化学习搭建具有可视化界面的服务器docker环境",
+      "content": "# xfce\n\n## 拉取\n\n### 最新版\n\n```bash\ndocker pull lscr.io/linuxserver/webtop:ubuntu-xfce\n```\n\n或者国内网络环境：\n\n```bash\ndocker pull linuxserver/webtop:ubuntu-xfce\n```\n\n## 构建容器\n\n此处是因为我要和我之前搭Isaac环境的文件夹对应，故多了好多挂载点，直接把前两条-v参数删除即可\n\n```bash\ndocker run -d \\\n  --name yuanzhe_xfce \\\n  --gpus all \\\n  --shm-size=16g \\\n  -e PUID=0 \\\n  -e PGID=0 \\\n  -e TZ=Asia/Shanghai \\\n  -e TITLE=yuanzhe_xfce \\\n  -e NVIDIA_DRIVER_CAPABILITIES=all \\\n  -p 3001:3001 \\\n  -p 5101:22 \\\n  -v /data/isaac_project/users/yuanzhe_xfce:/workspace \\\n  -v /data/isaac_project/shared:/shared_data \\\n  -v /data/isaac_project/users/yuanzhe_xfce/webtop_config:/config \\\n  --restart unless-stopped \\\n  linuxserver/webtop:ubuntu-xfce\n```\n\n## 注意\n\n访问的时候记得使用https协议",
+      "category": "服务器",
+      "tags": [
+        "服务器运维"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 153,
+      "readingTime": 1,
+      "viewCount": 0
+    }
+  ],
+  "categories": [
+    {
+      "id": "服务器",
+      "slug": "服务器",
+      "postCount": 8,
+      "name": "服务器",
+      "description": "",
+      "color": "#64748B"
+    },
+    {
+      "id": "git",
+      "slug": "git",
+      "postCount": 1,
+      "name": "git",
+      "description": "",
+      "color": "#64748B"
+    },
+    {
+      "id": "计算机网络",
+      "slug": "计算机网络",
+      "postCount": 1,
+      "name": "计算机网络",
+      "description": "",
+      "color": "#64748B"
+    },
+    {
+      "id": "wsl",
+      "slug": "wsl",
+      "postCount": 1,
+      "name": "wsl",
+      "description": "",
+      "color": "#64748B"
+    }
+  ],
+  "tags": [
+    {
+      "id": "服务器运维",
+      "name": "服务器运维",
+      "slug": "服务器运维",
+      "postCount": 6
+    },
+    {
+      "id": "git",
+      "name": "git",
+      "slug": "git",
+      "postCount": 2
+    },
+    {
+      "id": "github",
+      "name": "github",
+      "slug": "github",
+      "postCount": 1
+    },
+    {
+      "id": "服务器",
+      "name": "服务器",
+      "slug": "服务器",
+      "postCount": 2
+    },
+    {
+      "id": "Isaac",
+      "name": "Isaac",
+      "slug": "Isaac",
+      "postCount": 1
+    },
+    {
+      "id": "计算机网络",
+      "name": "计算机网络",
+      "slug": "计算机网络",
+      "postCount": 1
+    },
+    {
+      "id": "wsl",
+      "name": "wsl",
+      "slug": "wsl",
+      "postCount": 1
+    },
+    {
+      "id": "数据库",
+      "name": "数据库",
+      "slug": "数据库",
+      "postCount": 1
+    },
+    {
+      "id": "MySQL",
+      "name": "MySQL",
+      "slug": "MySQL",
+      "postCount": 1
+    },
+    {
+      "id": "Javascript",
+      "name": "Javascript",
+      "slug": "Javascript",
+      "postCount": 2
+    },
+    {
+      "id": "web前端",
+      "name": "web前端",
+      "slug": "web前端",
+      "postCount": 2
+    },
+    {
+      "id": "latex",
+      "name": "latex",
+      "slug": "latex",
+      "postCount": 1
+    },
+    {
+      "id": "数学建模竞赛",
+      "name": "数学建模竞赛",
+      "slug": "数学建模竞赛",
+      "postCount": 1
+    }
+  ],
+  "archives": [
+    {
+      "year": "2026",
+      "posts": [
+        {
+          "id": "docker-images-build",
+          "title": "创建镜像容器示例",
+          "slug": "docker-images-build",
+          "excerpt": "以Ubuntu 22.04 + CUDA 12.4.1为例，构建docker镜像，并创建适用于Isaac的容器",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 436,
+          "readingTime": 2,
+          "viewCount": 0
+        },
+        {
+          "id": "github-in-server",
+          "title": "在服务器上绑定github账号",
+          "slug": "github-in-server",
+          "excerpt": "在服务器上配置github的ssh提交",
+          "category": "git",
+          "tags": [
+            "git",
+            "github"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 238,
+          "readingTime": 1,
+          "viewCount": 0
+        },
+        {
+          "id": "install-ssh-server",
+          "title": "安装ssh服务端",
+          "slug": "install-ssh-server",
+          "excerpt": "安装ssh服务端记录",
+          "category": "服务器",
+          "tags": [
+            "服务器"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 88,
+          "readingTime": 1,
+          "viewCount": 0
+        },
+        {
+          "id": "isaac-env-build",
+          "title": "Isaac环境搭建",
+          "slug": "isaac-env-build",
+          "excerpt": "搭建Isaac环境",
+          "category": "服务器",
+          "tags": [
+            "服务器运维",
+            "Isaac"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 1760,
+          "readingTime": 6,
+          "viewCount": 0
+        },
+        {
+          "id": "nat-hole-punching",
+          "title": "p2p直连打洞",
+          "slug": "nat-hole-punching",
+          "excerpt": "不良林20251213视频记录",
+          "category": "计算机网络",
+          "tags": [
+            "计算机网络"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 1888,
+          "readingTime": 7,
+          "viewCount": 0
+        },
+        {
+          "id": "package-load-images",
+          "title": "打包及加载镜像",
+          "slug": "package-load-images",
+          "excerpt": "打包及加载docker镜像",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 226,
+          "readingTime": 1,
+          "viewCount": 0
+        },
+        {
+          "id": "server-data-move",
+          "title": "服务器磁盘爆满数据迁移",
+          "slug": "server-data-move",
+          "excerpt": "磁盘爆满数据迁移",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 248,
+          "readingTime": 1,
+          "viewCount": 0
+        },
+        {
+          "id": "ssh-reverse-port-forwarding",
+          "title": "ssh反向端口转发",
+          "slug": "ssh-reverse-port-forwarding",
+          "excerpt": "转发本地代理到服务器上",
+          "category": "服务器",
+          "tags": [
+            "服务器"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 154,
+          "readingTime": 1,
+          "viewCount": 0
+        },
+        {
+          "id": "ssh-secret-key",
+          "title": "通过密钥ssh登录服务器",
+          "slug": "ssh-secret-key",
+          "excerpt": "使用密钥登录服务器的配置方法",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 740,
+          "readingTime": 3,
+          "viewCount": 0
+        },
+        {
+          "id": "wsl-cmd",
+          "title": "WSL常用指令",
+          "slug": "wsl-cmd",
+          "excerpt": "wsl中一些常用指令",
+          "category": "wsl",
+          "tags": [
+            "wsl"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 103,
+          "readingTime": 1,
+          "viewCount": 0
+        },
+        {
+          "id": "xfce-docker-pull-and-build",
+          "title": "xfce容器拉取与构建",
+          "slug": "xfce-docker-pull-and-build",
+          "excerpt": "为Issac强化学习搭建具有可视化界面的服务器docker环境",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 153,
+          "readingTime": 1,
+          "viewCount": 0
+        }
+      ]
+    }
+  ],
+  "tagContent": {
+    "服务器运维": {
+      "tag": "服务器运维",
+      "posts": [
+        {
+          "id": "docker-images-build",
+          "title": "创建镜像容器示例",
+          "slug": "docker-images-build",
+          "excerpt": "以Ubuntu 22.04 + CUDA 12.4.1为例，构建docker镜像，并创建适用于Isaac的容器",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 436,
+          "readingTime": 2,
+          "viewCount": 0
+        },
+        {
+          "id": "isaac-env-build",
+          "title": "Isaac环境搭建",
+          "slug": "isaac-env-build",
+          "excerpt": "搭建Isaac环境",
+          "category": "服务器",
+          "tags": [
+            "服务器运维",
+            "Isaac"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 1760,
+          "readingTime": 6,
+          "viewCount": 0
+        },
+        {
+          "id": "package-load-images",
+          "title": "打包及加载镜像",
+          "slug": "package-load-images",
+          "excerpt": "打包及加载docker镜像",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 226,
+          "readingTime": 1,
+          "viewCount": 0
+        },
+        {
+          "id": "server-data-move",
+          "title": "服务器磁盘爆满数据迁移",
+          "slug": "server-data-move",
+          "excerpt": "磁盘爆满数据迁移",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 248,
+          "readingTime": 1,
+          "viewCount": 0
+        },
+        {
+          "id": "ssh-secret-key",
+          "title": "通过密钥ssh登录服务器",
+          "slug": "ssh-secret-key",
+          "excerpt": "使用密钥登录服务器的配置方法",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 740,
+          "readingTime": 3,
+          "viewCount": 0
+        },
+        {
+          "id": "xfce-docker-pull-and-build",
+          "title": "xfce容器拉取与构建",
+          "slug": "xfce-docker-pull-and-build",
+          "excerpt": "为Issac强化学习搭建具有可视化界面的服务器docker环境",
+          "category": "服务器",
+          "tags": [
+            "服务器运维"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 153,
+          "readingTime": 1,
+          "viewCount": 0
+        }
+      ],
+      "documents": [],
+      "challenges": []
+    },
+    "git": {
+      "tag": "git",
+      "posts": [
+        {
+          "id": "github-in-server",
+          "title": "在服务器上绑定github账号",
+          "slug": "github-in-server",
+          "excerpt": "在服务器上配置github的ssh提交",
+          "category": "git",
+          "tags": [
+            "git",
+            "github"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 238,
+          "readingTime": 1,
+          "viewCount": 0
+        }
+      ],
+      "documents": [
+        {
+          "id": "git-learn",
+          "title": "git学习",
+          "slug": "git-learn",
+          "excerpt": "使用交互式git学习网站学习笔记",
+          "category": "notes",
+          "tags": [
+            "git"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 2561,
+          "readingTime": 9,
+          "viewCount": 0,
+          "groupSlug": "git",
+          "groupTitle": "git",
+          "order": 1
+        }
+      ],
+      "challenges": []
+    },
+    "github": {
+      "tag": "github",
+      "posts": [
+        {
+          "id": "github-in-server",
+          "title": "在服务器上绑定github账号",
+          "slug": "github-in-server",
+          "excerpt": "在服务器上配置github的ssh提交",
+          "category": "git",
+          "tags": [
+            "git",
+            "github"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 238,
+          "readingTime": 1,
+          "viewCount": 0
+        }
+      ],
+      "documents": [],
+      "challenges": []
+    },
+    "服务器": {
+      "tag": "服务器",
+      "posts": [
+        {
+          "id": "install-ssh-server",
+          "title": "安装ssh服务端",
+          "slug": "install-ssh-server",
+          "excerpt": "安装ssh服务端记录",
+          "category": "服务器",
+          "tags": [
+            "服务器"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 88,
+          "readingTime": 1,
+          "viewCount": 0
+        },
+        {
+          "id": "ssh-reverse-port-forwarding",
+          "title": "ssh反向端口转发",
+          "slug": "ssh-reverse-port-forwarding",
+          "excerpt": "转发本地代理到服务器上",
+          "category": "服务器",
+          "tags": [
+            "服务器"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 154,
+          "readingTime": 1,
+          "viewCount": 0
+        }
+      ],
+      "documents": [],
+      "challenges": []
+    },
+    "Isaac": {
+      "tag": "Isaac",
+      "posts": [
+        {
+          "id": "isaac-env-build",
+          "title": "Isaac环境搭建",
+          "slug": "isaac-env-build",
+          "excerpt": "搭建Isaac环境",
+          "category": "服务器",
+          "tags": [
+            "服务器运维",
+            "Isaac"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 1760,
+          "readingTime": 6,
+          "viewCount": 0
+        }
+      ],
+      "documents": [],
+      "challenges": []
+    },
+    "计算机网络": {
+      "tag": "计算机网络",
+      "posts": [
+        {
+          "id": "nat-hole-punching",
+          "title": "p2p直连打洞",
+          "slug": "nat-hole-punching",
+          "excerpt": "不良林20251213视频记录",
+          "category": "计算机网络",
+          "tags": [
+            "计算机网络"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 1888,
+          "readingTime": 7,
+          "viewCount": 0
+        }
+      ],
+      "documents": [],
+      "challenges": []
+    },
+    "wsl": {
+      "tag": "wsl",
+      "posts": [
+        {
+          "id": "wsl-cmd",
+          "title": "WSL常用指令",
+          "slug": "wsl-cmd",
+          "excerpt": "wsl中一些常用指令",
+          "category": "wsl",
+          "tags": [
+            "wsl"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 103,
+          "readingTime": 1,
+          "viewCount": 0
+        }
+      ],
+      "documents": [],
+      "challenges": []
+    },
+    "数据库": {
+      "tag": "数据库",
+      "posts": [],
+      "documents": [
+        {
+          "id": "database-learn",
+          "title": "数据库学习",
+          "slug": "database-learn",
+          "excerpt": "MySQL数据库学习笔记（尚未完成）",
+          "category": "notes",
+          "tags": [
+            "数据库",
+            "MySQL"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 15107,
+          "readingTime": 51,
+          "viewCount": 0,
+          "groupSlug": "database",
+          "groupTitle": "数据库",
+          "order": 1
+        }
+      ],
+      "challenges": []
+    },
+    "MySQL": {
+      "tag": "MySQL",
+      "posts": [],
+      "documents": [
+        {
+          "id": "database-learn",
+          "title": "数据库学习",
+          "slug": "database-learn",
+          "excerpt": "MySQL数据库学习笔记（尚未完成）",
+          "category": "notes",
+          "tags": [
+            "数据库",
+            "MySQL"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 15107,
+          "readingTime": 51,
+          "viewCount": 0,
+          "groupSlug": "database",
+          "groupTitle": "数据库",
+          "order": 1
+        }
+      ],
+      "challenges": []
+    },
+    "Javascript": {
+      "tag": "Javascript",
+      "posts": [],
+      "documents": [
+        {
+          "id": "es6-learn",
+          "title": "ES6",
+          "slug": "es6-learn",
+          "excerpt": "ES6基础",
+          "category": "notes",
+          "tags": [
+            "Javascript",
+            "web前端"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 4472,
+          "readingTime": 15,
+          "viewCount": 0,
+          "groupSlug": "front-end",
+          "groupTitle": "前端",
+          "order": 2
+        },
+        {
+          "id": "javascript-learn",
+          "title": "Javascript学习",
+          "slug": "javascript-learn",
+          "excerpt": "Javascript基础学习",
+          "category": "notes",
+          "tags": [
+            "web前端",
+            "Javascript"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 8690,
+          "readingTime": 29,
+          "viewCount": 0,
+          "groupSlug": "front-end",
+          "groupTitle": "前端",
+          "order": 1
+        }
+      ],
+      "challenges": []
+    },
+    "web前端": {
+      "tag": "web前端",
+      "posts": [],
+      "documents": [
+        {
+          "id": "es6-learn",
+          "title": "ES6",
+          "slug": "es6-learn",
+          "excerpt": "ES6基础",
+          "category": "notes",
+          "tags": [
+            "Javascript",
+            "web前端"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 4472,
+          "readingTime": 15,
+          "viewCount": 0,
+          "groupSlug": "front-end",
+          "groupTitle": "前端",
+          "order": 2
+        },
+        {
+          "id": "javascript-learn",
+          "title": "Javascript学习",
+          "slug": "javascript-learn",
+          "excerpt": "Javascript基础学习",
+          "category": "notes",
+          "tags": [
+            "web前端",
+            "Javascript"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 8690,
+          "readingTime": 29,
+          "viewCount": 0,
+          "groupSlug": "front-end",
+          "groupTitle": "前端",
+          "order": 1
+        }
+      ],
+      "challenges": []
+    },
+    "latex": {
+      "tag": "latex",
+      "posts": [],
+      "documents": [
+        {
+          "id": "latex-learn",
+          "title": "latex学习",
+          "slug": "latex-learn",
+          "excerpt": "记录latex一些简单的使用",
+          "category": "notes",
+          "tags": [
+            "latex",
+            "数学建模竞赛"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 1900,
+          "readingTime": 7,
+          "viewCount": 0,
+          "groupSlug": "latex",
+          "groupTitle": "latex",
+          "order": 1
+        }
+      ],
+      "challenges": []
+    },
+    "数学建模竞赛": {
+      "tag": "数学建模竞赛",
+      "posts": [],
+      "documents": [
+        {
+          "id": "latex-learn",
+          "title": "latex学习",
+          "slug": "latex-learn",
+          "excerpt": "记录latex一些简单的使用",
+          "category": "notes",
+          "tags": [
+            "latex",
+            "数学建模竞赛"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 1900,
+          "readingTime": 7,
+          "viewCount": 0,
+          "groupSlug": "latex",
+          "groupTitle": "latex",
+          "order": 1
+        }
+      ],
+      "challenges": []
+    }
+  },
+  "documentGroups": [
+    {
+      "slug": "front-end",
+      "title": "前端",
+      "documents": [
+        {
+          "id": "javascript-learn",
+          "title": "Javascript学习",
+          "slug": "javascript-learn",
+          "excerpt": "Javascript基础学习",
+          "category": "notes",
+          "tags": [
+            "web前端",
+            "Javascript"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 8690,
+          "readingTime": 29,
+          "viewCount": 0,
+          "groupSlug": "front-end",
+          "groupTitle": "前端",
+          "order": 1
+        },
+        {
+          "id": "es6-learn",
+          "title": "ES6",
+          "slug": "es6-learn",
+          "excerpt": "ES6基础",
+          "category": "notes",
+          "tags": [
+            "Javascript",
+            "web前端"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 4472,
+          "readingTime": 15,
+          "viewCount": 0,
+          "groupSlug": "front-end",
+          "groupTitle": "前端",
+          "order": 2
+        }
+      ]
+    },
+    {
+      "slug": "database",
+      "title": "数据库",
+      "documents": [
+        {
+          "id": "database-learn",
+          "title": "数据库学习",
+          "slug": "database-learn",
+          "excerpt": "MySQL数据库学习笔记（尚未完成）",
+          "category": "notes",
+          "tags": [
+            "数据库",
+            "MySQL"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 15107,
+          "readingTime": 51,
+          "viewCount": 0,
+          "groupSlug": "database",
+          "groupTitle": "数据库",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "slug": "git",
+      "title": "git",
+      "documents": [
+        {
+          "id": "git-learn",
+          "title": "git学习",
+          "slug": "git-learn",
+          "excerpt": "使用交互式git学习网站学习笔记",
+          "category": "notes",
+          "tags": [
+            "git"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 2561,
+          "readingTime": 9,
+          "viewCount": 0,
+          "groupSlug": "git",
+          "groupTitle": "git",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "slug": "latex",
+      "title": "latex",
+      "documents": [
+        {
+          "id": "latex-learn",
+          "title": "latex学习",
+          "slug": "latex-learn",
+          "excerpt": "记录latex一些简单的使用",
+          "category": "notes",
+          "tags": [
+            "latex",
+            "数学建模竞赛"
+          ],
+          "createdAt": "2026-06-29",
+          "updatedAt": "2026-06-29",
+          "isPublished": true,
+          "isTop": false,
+          "wordCount": 1900,
+          "readingTime": 7,
+          "viewCount": 0,
+          "groupSlug": "latex",
+          "groupTitle": "latex",
+          "order": 1
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "id": "javascript-learn",
+      "title": "Javascript学习",
+      "slug": "javascript-learn",
+      "excerpt": "Javascript基础学习",
+      "content": "# JavaScript\n\n## JavaScript语句、标识符\n\n### 语句\n\nJavaScript 程序的单位是行（line），也就是一行一行地执行。一般 情况下，每一行就是一个语句\n\n```javascript\nvar num = 10;\n```\n\n\n\n语句以分号结尾，一个分号就表示一个语句结束\n\n### 标识符\n\n标识符（identifier）指的是用来识别各种值的合法名称。最常见的标识符就是变量名\n\n标识符是由：字母、美元符号(`$`)、下划线(`_`)和数字组成，其中数字不能开头\n\n> 中文是合法的标识符，可以用作变量名（不推荐）\n\n### JavaScript保留关键字\n\n`arguments`、`break`、`case`、`catch`、`class`、`const`、`continue`、`debugger`、`default`、`delete`、`do`、`else`、`enum`、`eval`、`export`、`extends`、`false`、`finally`、`for`、`function`、`if`、`implements`、`import`、`in`、`instanceof`、`interface`、`let`、`new`、`null`、`package`、`private`、`protected`、`public`、`return`、`static`、`super`、`switch`、`this`、`throw`、`true`、`try`、`typeof`、`var`、`void`、`while`、`with`、`yield`\n\n## 变量\n\n### 变量的重新赋值\n\n```javascript\nvar num = 10;\nnum = 20;\n```\n\n### 变量提升\n\nJavaScript 引擎的工作方式是，先解析代码，获取所有被声明的变量，然后再一行一行地运行。这造成的结果，就是所有的变量的声明语句，都会被提升到代码的头部，这就叫做变量提升（hoisting）。\n\n```javascript\nconsole.log(num);\nvar num = 10;\n// 输出undefined\n```\n\n## JavaScript引入到文件\n\n### 嵌入到HTML文件\n\n```html\n<body>\n\t<script>\n\t\tvar age = 20\n\t</script>\n</body>\n```\n\n### 引入本地独立JS文件\n\n```html\n<body>\n\t<script type=\"text/javascript\" src=\"./itbaizhan.js\">   </script>\n</body>\n```\n\n### 引入网络来源文件\n\n```html\n<body>\n\t<script src=\"https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js\">\n    </script>\n</body>\n```\n\n## JavaScript注释与常见输出方式\n\n### JavaScript注释\n\n源码中注释是不被引擎所解释的，它的作用是对代码进行解释。\nJavascript 提供两种注释的写法：一种是单行注释，用`//`起头；另一种是多行注释，放在`/*`和`*/`之间。\n\n### JavaScript输出方式\n\nJavaScript有很多种输出方式，都可以让我们更直观的看到程序运行的结果\n\n```javascript\n// 在浏览器中弹出一个对话框,然后把要输出的内容展示出来,alert都是把要输出的内容首先转换为字符串然后在输出的\nalert(\"要输出的内容\");\n\ndocument.write(\"要输出的内容\");\n\n// 在控制台输出内容\nconsole.log(\"要输出的内容\");\n```\n\n## 数据类型\n\n### 数据类型分类\n\nJavaScript 语言的每一个值，都属于某一种数据类型。JavaScript的数据类型，共有六种。（ES6 又新增了第七种 Symbol 类型的值和第八种 BigInt类型，当前课程暂不涉及）\n\n#### 原始类型(基础类型)\n\n```javascript\nvar age = 20;\nvar name = \"尚学堂\";\nvar learn = true;\n```\n\n#### 合成类型(复合类型)\n\n对象：因为一个对象往往是多个原始类型的值的合成，可以看作是一个存放各种值的容器\n\n```javascript\nvar user = {\n    name:\"尚学堂\",\n    age:20,\n    learn:true\n}\n```\n\n> 至于`undefined`和`null`，一般将它们看成两个特殊值。\n\n## 运算符\n\n### typeof运算符\n\n确定一个值到底是什么类型。\n\n#### 数值返回number\n\n```javascript\ntypeof 123 // \"number\"\n```\n\n#### 字符串返回string\n\n```javascript\ntypeof '123' // \"string\"\n```\n\n#### 布尔值返回boolean\n\n```javascript\ntypeof false // \"boolean\"\n```\n\n#### 对象返回object\n\n```javascript\ntypeof {} // \"object\"\n```\n\n#### null和undefined区别\n\nnull与undefined都可以表示“没有”，含义非常相似。将一个变量赋值为undefined或null，语法效果几乎没区别。\n\n### 算术运算符\n\n#### 加减乘除运算符\n\n```javascript\n10 + 10; // 20\n100 - 10; // 90\n10 * 2; // 20\n10 / 5; // 2\n```\n\n#### 余数运算符\n\n```javascript\n13 % 5 // 3\n```\n\n#### 自增和自减运算符\n\n```javascript\nvar x = 1;\nvar y = 1;\n++x // 2\n--y // 0\n```\n\n### 赋值运算符\n\n赋值运算符（Assignment Operators）用于给变量赋值\n最常见的赋值运算符是等号（=）\n\n```javascript\n// 将 1 赋值给变量 x\nvar x = 1;\n// 将变量 y 的值赋值给变量 x\nvar x = y;\n\nx += y // 等同于 x = x + y\nx -= y // 等同于 x = x - y\nx *= y // 等同于 x = x * y\nx /= y // 等同于 x = x / y\nx %= y // 等同于 x = x % y\n```\n\n### 比较运算符\n\n| 比较运算符 |              描述              |\n| :--------: | :----------------------------: |\n|    `<`     |           小于运算符           |\n|    `>`     |           大于运算符           |\n|    `<=`    |        小于或等于运算符        |\n|    `>=`    |        大于或等于运算符        |\n|    `==`    |      相等运算符（比较值）      |\n|   `===`    | 严格相等运算符（比较值和类型） |\n|    `!=`    |          不相等运算符          |\n|   `!==`    |        严格不相等运算符        |\n\n### 布尔运算符\n\n#### 取反运算符\n\n- 布尔值取反\n\n  ```javascript\n  !true // false\n  !false // true\n  ```\n\n- 非布尔值取反\n\n  对于非布尔值，取反运算符会将其转为布尔值。可以这样记忆，以下六个值取反后为true，其他值都为false\n\n  `undefined`、`null`、`false`、`0`、`NaN`、空字符串\n\n  ```javascript\n  !undefined // true\n  !null // true\n  !0 // true\n  !NaN // true\n  !\"\" // true\n  \n  !54 // false\n  !'hello' // false\n  ```\n\n#### 且运算符\n\n```javascript\nconsole.log(10 < 20 && 10 >5); // true\n```\n\n#### 或运算符\n\n```javascript\nconsole.log(10 < 20 || 10 < 5); // true\n```\n\n## 条件语句\n\n### if语句\n\n```javascript\nif (条件){\n   语句;\n}\n```\n\n### if...else语句\n\n```javascript\nif (条件) {\n  // 满足条件时，执行的语句\n} else {\n  // 不满足条件时，执行的语句\n}\n\nif (条件1) {\n  // ...\n} else if (条件2) {\n  // ...\n} else {\n  // ...\n}\n```\n\n### switch语句\n\n```javascript\nswitch (表达式) {\n  case 值1:\n    // ...\n    break;\n  case 值2:\n    // ...\n    break;\n  default:\n    // ...\n}\n\n```\n\n### 三元运算符\n\n```javascript\n(条件) ? 表达式1 : 表达式2\n```\n\n## 循环语句\n\n### for循环\n\n```javascript\nfor (初始化表达式; 条件; 迭代因子) {\n  语句;\n}\n```\n\n1. 初始化表达式（initialize）：确定循环变量的初始值，只在循环\n   开始时执行一次。\n2. 布尔表达式（test）：每轮循环开始时，都要执行这个条件表达\n   式，只有值为真，才继续进行循环。\n3. 迭代因子（increment）：每轮循环的最后一个操作，通常用来\n   递增循环变量。\n\n以上三个可省略任何一个\n\n### while循环\n\n```javascript\nwhile (条件) {\n  语句;\n}\n```\n\n### break和continue语句\n\nbreak跳出整个循环；continue跳出本次循环，进入下次循环\n\n## 字符串\n\n### 介绍\n\n- 字符串就是零个或多个排在一起的字符，放在单引号或双引号之中\n\n- 单引号字符串的内部，可以使用双引号。双引号字符串的内部，可以使用单引号\n\n- 如果要在单引号字符串的内部，使用单引号，就必须在内部的单引号前面加上反斜杠，用来转义。双引号字符串内部使用双引号，也是如此\n\n### 长字符串\n\n如果长字符串必须分成多行，可以在每一行的尾部使用反斜杠\n\n```javascript\nvar longString = 'Long \\\nlong \\\nstring';\nlongString // \"Long long long string\"\n```\n\n### length属性\n\nlength属性返回字符串的长度，该属性也是无法改变的\n\n```javascript\nvar s = 'itbaizhan';\ns.length // 9\n```\n\n### 字符串方法\n\n#### charAt()\n\n`charAt()`返回指定位置的字符，参数是从`0`开始编号的\n\n```javascript\nvar s = new String('itbaizhan');\ns.charAt(1) // \"t\"\ns.charAt(s.length - 1) // \"n\"\n```\n\n如果参数为负数，或大于等于字符串的长度，`charAt()`返回空字符串\n\n```javascript\n'itbaizhan'.charAt(-1) // \"\"\n'itbaizhan'.charAt(9) // \"\"\n```\n\n#### concat()\n\n`concat`方法用于连接两个字符串，返回一个新字符串，不改变原字符串\n\n```javascript\nvar s1 = 'itbaizhan';\nvar s2 = 'sxt';\ns1.concat(s2) // \"itbaizhansxt\"\ns1 // \"itbaizhan\"\n```\n\n该方法可以接受多个参数\n\n```javascript\n'sxt'.concat('itbaizhan', 'bjsxt') //\"sxtitbaizhanbjsxt\"\n```\n\n如果参数不是字符串，`concat`方法会将其先转为字符串，然后再连接\n\n```javascript\nvar one = 1;\nvar two = 2;\nvar three = '3';\n''.concat(one, two, three) // \"123\"\n```\n\n#### substring()\n\n`substring`方法用于从原字符串取出子字符串并返回，不改变原字符串。\n\n它的第一个参数表示子字符串的开始位置，第二个位置表示结束位置（返回结果不含该位置）\n\n```javascript\n'itbaizhan'.substring(0, 2) // \"it\"\n```\n\n如果省略第二个参数，则表示子字符串一直到原字符串的结束\n\n```javascript\n'itbaizhan'.substring(2) // \"baizhan\"\n```\n\n如果第一个参数大于第二个参数，`substring`方法会自动更换两个参数的位置\n\n```javascript\n'itbaizhan'.substring(9, 2) // \"baizhan\"\n// 等同于\n'itbaizhan'.substring(2, 9) // \"baizhan\"\n```\n\n如果参数是负数，`substring`方法会自动将负数转为0\n\n```javascript\n'itbaizhan'.substring(-3) // \"itbaizhan\"\n'itbaizhan'.substring(2, -3) // \"it\"\n```\n\n#### substr()\n\n`substr`方法用于从原字符串取出子字符串并返回，不改变原字符串，跟`substring`方法的作用相同\n\n`substr`方法的第一个参数是子字符串的开始位置（从0开始计算），第二个参数是子字符串的长度\n\n```javascript\n'itbaizhan'.substr(2, 7); // baizhan\n```\n\n如果省略第二个参数，则表示子字符串一直到原字符串的结束\n\n```javascript\n'itbaizhan'.substr(2) // \"baizhan\"\n```\n\n如果第一个参数是负数，表示倒数计算的字符位置。如果第二个参数是负数，将被自动转为0，因此会返回空字符串\n\n```javascript\n'itbaizhan'.substr(-7) // \"baizhan\"\n'itbaizhan'.substr(4, -1) // \"\"\n```\n\n#### indexOf()\n\n`indexOf`方法用于确定一个字符串在另一个字符串中第一次出现的位置，返回结果是匹配开始的位置。如果返回`-1`，就表示不匹配\n\n```javascript\n'hello world'.indexOf('o') // 4\n'itbaizhan'.indexOf('sxt') // -1\n```\n\n`indexOf`方法还可以接受第二个参数，表示从该位置开始向后匹配\n\n```javascript\n'hello world'.indexOf('o', 6) // 7\n```\n\n#### trim()\n\n`trim`方法用于去除字符串两端的空格，返回一个新字符串，不改变原字符串\n\n```javascript\n' hello world '.trim()\n// \"hello world\"\n```\n\n该方法去除的不仅是空格，还包括制表符（`\\t`、`\\v`）、换行符（`\\n`）和回车符（`\\r`）\n\n```javascript\n'\\r\\nitbaizhan \\t'.trim() // 'itbaizhan'\n```\n\nES6扩展方法， `trimEnd()`和`trimStart()`方法\n\n```javascript\n\"   itbaizhan   \".trimEnd();         /*   itbaizhan*/\n\"   itbaizhan   \".trimStart();       /*itbaizhan   */\n```\n\n#### split()\n\n`split`方法按照给定规则分割字符串，返回一个由分割出来的子字符串组成的数组\n\n```javascript\n'it|sxt|baizhan'.split('|') // [\"it\", \"sxt\", \"baizhan\"]\n```\n\n如果分割规则为空字符串，则返回数组的成员是原字符串的每一个字符。\n\n```javascript\n'a|b|c'.split('') // [\"a\", \"|\", \"b\", \"|\", \"c\"]\n```\n\n如果省略参数，则返回数组的唯一成员就是原字符串\n\n```javascript\n'it|sxt|bz'.split() // [it|sxt|bz]\n```\n\n`split`方法还可以接受第二个参数，限定返回数组的最大成员数。\n\n```javascript\n'it|sxt|bz'.split('|', 0) // []\n'it|sxt|bz'.split('|', 1) // [\"it\"]\n'it|sxt|bz'.split('|', 2) // [\"it\", \"sxt\"]\n'it|sxt|bz'.split('|', 3) // [\"it\", \"sxt\", \"bz\"]\n'it|sxt|bz'.split('|', 4) // [\"it\", \"sxt\", \"bz\"]\n```\n\n## 数组\n\n### 介绍\n\n数组（array）是按次序排列的一组值。每个值的位置都有编号（从0开始），整个数组用方括号表示。\n\n```javascript\nvar arr = ['sxt', 'baizhan', 'it'];\n```\n\n除了在定义时赋值，数组也可以先定义后赋值。\n\n任何类型的数据，都可以放入数组\n\n如果数组的元素还是数组，就形成了多维数组\n\n### length属性\n\n数组的length属性，返回数组的成员数量\n\n```javascript\n['sxt', 'baizhan', 'it'].length // 3\n```\n\n### 数组的遍历\n\n可以使用for循环或while循环\n\n还可以for...in遍历\n\n```javascript\nvar a = ['sxt', 'baizhan', 'it'];\nfor (var i in a) {\n  console.log(a[i]);\n}\n```\n\n### 数组方法\n\n#### Array.isArray()\n\n`Array.isArray`方法返回一个布尔值，表示参数是否为数组。它可以弥补`typeof`运算符的不足\n\n```javascript\nvar arr = [\"尚学堂\", 100, true];\nconsole.log(typeof arr); // object\n\nvar arr = ['sxt', 'baizhan', 'it'];\nArray.isArray(arr) // true\n```\n\n#### push()/pop()\n\n`push`方法用于在数组的末端添加一个或多个元素，并返回添加新元素后的数组长度。**注意，该方法会改变原数组**\n\n```javascript\nvar arr = [];\narr.push(\"尚学堂\") // 1\narr.push('itbaizhan') // 2\narr.push(true, {}) // 4\narr // [尚学堂, 'itbaizhan', true, {}]\n```\n\n`pop`方法用于删除数组的最后一个元素，并返回该元素。**注意，该方法会改变原数组**\n\n```javascript\nvar arr = ['尚学堂', 'itbaizhan', 'WEB前端'];\narr.pop() // 'WEB前端'\narr // ['尚学堂', 'itbaizhan']\n```\n\n#### shift()/unshift()\n\n`shift`方法用于删除数组的第一个元素，并返回该元素。**注意，该方法会改变原数组**\n\n```javascript\nvar arr = ['尚学堂', 'itbaizhan', 'WEB前端'];\narr.shift() // '尚学堂'\narr // ['itbaizhan', 'WEB前端']\n```\n\n`unshift`方法用于在数组的第一个位置添加元素，并返回添加新元素后的数组长度。**注意，该方法会改变原数组**\n\n```javascript\nvar arr = ['尚学堂', 'itbaizhan', 'WEB前端'];\n\narr.unshift('baizhan'); // 4\narr // ['baizhan', '尚学堂', 'itbaizhan', 'WEB前端']\n```\n\n`unshift`方法可以接受多个参数，这些参数都会添加到目标数组头部\n\n```javascript\nvar arr = [ '尚学堂', 'itbaizhan' ];\narr.unshift('WEB前端', 'baizhan') // 4\narr // [ 'WEB前端', 'baizhan', '尚学堂','itbaizhan' ]\n```\n\n#### join()\n\n`join`方法以指定参数作为分隔符，将所有数组成员连接为一个字符串返回。如果不提供参数，默认用逗号分隔\n\n```javascript\nvar a = [1, 2, 3, 4];\na.join(' ') // '1 2 3 4'\na.join(' | ') // \"1 | 2 | 3 | 4\"\na.join() // \"1,2,3,4\"\n```\n\n如果数组成员是`undefined`或`null`或空位，会被转成空字符串\n\n```javascript\n[undefined, null].join('#') // '#'\n['a',, 'b'].join('-') // 'a--b'\n```\n\n数组的`join`配合字符串的`split`可以实现数组与字符串的互换\n\n```javascript\nvar arr = [\"a\",\"b\",\"c\"];\nvar myArr = arr.join(\"\");\nconsole.log(myArr); // 'abc'\nconsole.log(myArr.split(\"\")); // ['a', 'b', 'c']\n```\n\n#### concat()\n\n`concat`方法用于多个数组的合并。它将新数组的成员，添加到原数组成员的后部，然后返回一个新数组，**原数组不变**\n\n```javascript\n['hello'].concat(['world']) // [\"hello\", \"world\"]\n['hello'].concat(['world'], ['!']) // [\"hello\", \"world\", \"!\"]\n```\n\n除了数组作为参数，`concat`也接受其他类型的值作为参数，添加到目标数组尾部。\n\n```javascript\n[1, 2, 3].concat(4, 5, 6) // [1, 2, 3, 4, 5, 6]\n```\n\n#### reverse()\n\n`reverse`方法用于颠倒排列数组元素，返回改变后的数组。**注意，该方法将改变原数组**\n\n```javascript\nvar a = ['a', 'b', 'c'];\na.reverse() // [\"c\", \"b\", \"a\"]\na // [\"c\", \"b\", \"a\"]\n```\n\n实现一个字符串反转排列\n\n```javascript\nvar str = \"hello\";\nstr.split(\"\").reverse().join(\"\") // \"olleh\"\n```\n\n#### indexOf()\n\n`indexOf`方法返回给定元素在数组中第一次出现的位置，如果没有出现则返回`-1`\n\n```javascript\nvar arr = ['a', 'b', 'c'];\narr.indexOf('b') // 1\narr.indexOf('y') // -1\n```\n\n`indexOf`方法还可以接受第二个参数，表示搜索的开始位置\n\n```javascript\n['尚学堂', '百战程序员', 'itbaizhan'].indexOf('尚学堂', 1) // -1\n```\n\n## 函数\n\n### 函数的声明\n\nfunction命令： function命令声明的代码区块，就是一个函数。function命令后面是函数名，函数名后面是一对圆括号，里面是传入函数的参数。函数体放在大括号里面。\n\n### 函数名的提升\n\nJavaScript引擎将函数名视同变量名，所以采用function命令声明函数时，整个函数会像变量声明一样，被提升到代码头部\n\n```javascript\nadd();\nfunction add() {}\n```\n\n### 函数参数\n\n函数运行的时候，有时需要提供外部数据，不同的外部数据会得到不同的结果，这种外部数据就叫参数\n\n### 函数返回值\n\nJavaScript函数提供两个接口实现与外界的交互，其中参数作为入口，接收外界信息；返回值作为出口，把运算结果反馈给外界\n\n## 对象\n\n### 对象概述\n\n对象就是一组“键值对”（key-value）的集合，是一种无序的复合数据集合\n\n```javascript\nvar user = {\n  name: 'itbaizhan',\n  age: '13'\n};\n```\n\n对象的每一个键名又称为“属性”（property），它的“键值”可以是任何数据类型。如果一个属性的值为函数，通常把这个属性称为“方法”，它可以像函数那样调用\n\n```javascript\nvar user = {\n  getName: function (name) {\n    return name;\n }\n};\nuser.getName(\"itbaizhan\") // itbaizhan\n```\n\n如果属性的值还是一个对象，就形成了链式引用\n\n```javascript\nvar user = {\n    name:\"itbaizhan\",\n    age:13,\n    container:{\n        frontEnd:[\"Web前端\",\"Android\",\"iOS\"],\n        backEnd:[\"Java\",\"Python\"]\n   }\n}\nuser.container.frontEnd // [\"Web前端\",\"Android\",\"iOS\"]\n```\n\n### Math对象\n\n#### Math.abs()\n\n`Math.abs`方法返回参数值的绝对值\n\n#### Math.max(), Math.min()\n\n`Math.max`方法返回参数之中最大的那个值，`Math.min`返回最小的那个\n值。如果参数为空, `Math.min`返回`Infinity`,`Math.max` 返回`-Infinity`\n\n#### Math.floor(), Math.ceil()\n\n`Math.floor`方法返回小于参数值的最大整数\n\n`Math.ceil`方法返回大于参数值的最小整数\n\n#### Math.random()\n\n返回`[0, 1)`之间一个伪随机数\n\n### Date()对象\n\n#### Date.now()\n\n`Date.now`方法返回当前时间距离时间零点（1970年1月1日 00:00:00UTC）的毫秒数，相当于Unix时间戳乘以1000\n\n```javascript\nDate.now();   // 1635216733395\n```\n\n#### 时间戳\n\n时间戳是指格林威治时间1970年01月01日00时00分00秒(北京时间1970年01月01日08时00分00秒)起至现在的总秒数。\n格林威治和北京时间就是时区的不同\nUnix是20世纪70年代初出现的一个操作系统，Unix认为1970年1月1日0点是时间纪元。JavaScript也就遵循了这一约束\n`Date`对象提供了一系列`get*`方法，用来获取实例对象某个方面的值\n\n- 实例方法get类\n  - getTime()：返回实例距离1970年1月1日00:00:00的毫秒数\n  - getDate()：返回实例对象对应每个月的几号（从1开始）\n  - getDay()：返回星期几，星期日为0，星期一为1，以此类推\n  - getYear()：返回距离1900的年数\n  - getFullYear()：返回四位的年份\n  - getMonth()：返回月份（0表示1月，11表示12月）\n  - getHours()：返回小时（0-23）\n  - getMilliseconds()：返回毫秒（0-999）\n  - getMinutes()：返回分钟（0-59）\n  - getSeconds()：返回秒（0-59）\n\n## DOM概述\n\nDOM 是 JavaScript 操作网页的接口，全称为“文档对象模型”（Document Object Model）。它的作用是将网页转为一个JavaScript 对象，从而可以用脚本进行各种操作（比如对元素增删内容）\n浏览器会根据 DOM 模型，将结构化文档HTML解析成一系列的节点，再由这些节点组成一个树状结构（DOM Tree）。所有的节点和最终的树状结构，都有规范的对外接口DOM 只是一个接口规范，可以用各种语言实现。所以严格地说，\nDOM 不是 JavaScript 语法的一部分，但是 DOM 操作是 JavaScript最常见的任务，离开了 DOM，JavaScript 就无法控制网页。另一方面，JavaScript 也是最常用于 DOM 操作的语言\n\n### 节点\n\nDOM 的最小组成单位叫做节点（node）。文档的树形结构（DOM树），就是由各种不同类型的节点组成。每个节点可以看作是文档树的一片叶子\n\n- 节点的类型有七种\n  - Document：整个文档树的顶层节点\n  - DocumentType：doctype标签\n  - Element：网页的各种HTML标签\n  - Attribute：网页元素的属性（比如class=\"right\"）\n  - Text：标签之间或标签包含的文本\n  - Comment：注释\n  - DocumentFragment：文档的片段\n\n### 节点树\n\n一个文档的所有节点，按照所在的层级，可以抽象成一种树状结构。这种树状结构就是 DOM 树。它有一个顶层节点，下一层都是顶层节点的子节点，然后子节点又有自己的子节点，就这样层层衍生出一个金字塔结构，倒过来就像一棵树\n\n浏览器原生提供document节点，代表整个文档\n\n```javascript\ndocument // 整个文档树\n```\n\n- 除了根节点，其他节点都有三种层级关系\n  - 父节点关系（parentNode）：直接的那个上级节点\n  - 子节点关系（childNodes）：直接的下级节点\n  - 同级节点关系（sibling）：拥有同一个父节点的节点\n\n### Node.nodeType属性\n\n- 不同节点的nodeType属性值和对应的常量如下\n  - 文档节点（document）：9，对应常量Node.DOCUMENT_NODE\n  - 元素节点（element）：1，对应常量Node.ELEMENT_NODE\n  - 属性节点（attr）：2，对应常量Node.ATTRIBUTE_NODE\n  - 文本节点（text）：3，对应常量Node.TEXT_NODE\n  - 文档片断节点（DocumentFragment）：11，对应常量Node.DOCUMENT_FRAGMENT_NODE\n\n```javascript\ndocument.nodeType // 9\ndocument.nodeType === Node.DOCUMENT_NODE // true\n```\n\n## document对象_方法/获取元素\n\n### document.getElementsByTagName()\n\n`document.getElementsByTagName`方法搜索 HTML 标签名，返回符合条件的元素。它的返回值是一个类似数组对象（`HTMLCollection`实例），可以实时反映 HTML 文档的变化。如果没有任何匹配的元素，就返回一个空集\n\n```javascript\nvar paras = document.getElementsByTagName('p');\n```\n\n如果传入`*`，就可以返回文档中所有 HTML 元素\n\n```javascript\nvar allElements = document.getElementsByTagName('*');\n```\n\n### document.getElementsByClassName()\n\n`document.getElementsByClassName`方法返回一个类似数组的对象（`HTMLCollection`实例），包括了所有`class`名字符合指定条件的元素，元素的变化实时反映在返回结果中\n\n```javascript\nvar elements = document.getElementsByClassName(names);\n```\n\n由于`class`是保留字，所以JavaScript一律使用`className`表示CSS的`class`\n\n参数可以是多个`class`，它们之间使用空格分隔\n\n```javascript\nvar elements = document.getElementsByClassName('foo bar');\n```\n\n### document.getElementsByName()\n\n`document.getElementsByName`方法用于选择拥有`name`属性的 HTML 元素（比如`<form>`、`<radio>`、`<img>`等），返回一个类似数组的的对象（`NodeList`实例），因为`name`属性相同的元素可能不止一个\n\n```javascript\n// 表单为 <form name=\"itbaizhan\"></form>\nvar forms = document.getElementsByName('itbaizhan');\n```\n\n### document.getElementById()\n\n`document.getElementById`方法返回匹配指定`id`属性的元素节点。如果没有发现匹配的节点，则返回`null`\n\n```javascript\nvar elem = document.getElementById('para1');\n```\n\n注意，该方法的参数是大小写敏感的。比如，如果某个节点的`id`属性是 main ，那么`document.getElementById('Main')`将返回`null`\n\n### document.querySelector()\n\n`document.querySelector`方法接受一个 CSS 选择器作为参数，返回匹配该选择器的元素节点。如果有多个节点满足匹配条件，则返回第一个匹配的节点。如果没有发现匹配的节点，则返回`null`\n\n```javascript\nvar el1 = document.querySelector('.myclass');\n```\n\n### document.querySelectorAll()\n\n`document.querySelectorAll`方法与`querySelector`用法类似，区别是返回一个`NodeList`对象，包含所有匹配给定选择器的节点\n\n```javascript\nvar elementList = document.querySelectorAll('.myclass');\n```\n\n## document对象_方法/创建元素\n\n### document.createElement()\n\n`document.createElement`方法用来生成元素节点，并返回该节点\n\n```javascript\nvar newDiv = document.createElement('div');\n```\n\n### document.createTextNode()\n\n`document.createTextNode`方法用来生成文本节点（`Text`实例），并返回该节点。它的参数是文本节点的内容\n\n```javascript\nvar newDiv = document.createElement('div');\nvar newContent = document.createTextNode('Hello');\nnewDiv.appendChild(newContent);\n```\n\n### document.createAttribute()\n\n`document.createAttribute`方法生成一个新的属性节点（`Attr`实例），并返回它\n\n```javascript\nvar attribute = document.createAttribute(name);\n```\n\n```javascript\nvar root = document.getElementById('root');\nvar it = document.createAttribute('itbaizhan');\nit.value = 'it';\nroot.setAttributeNode(it);\n```\n\n## Element对象_属性\n\nElement对象对应网页的 HTML 元素。每一个 HTML 元素，在DOM 树上都会转化成一个Element节点对象（以下简称元素节点）\n\n### Element.id\n\n`Element.id`属性返回指定元素的 id 属性，该属性可读写\n\n```javascript\n// HTML 代码为 <p id=\"foo\">\nvar p = document.querySelector('p');\np.id // \"foo\"\n```\n\n### Element.className\n\n`className`属性用来读写当前元素节点的`class`属性。它的值是一个字符串，每个`class`之间用空格分割\n\n```javascript\n// HTML 代码 <div class=\"one two three\" id=\"myDiv\"></div>\nvar div = document.getElementById('myDiv');\ndiv.className\n```\n\n### Element.classList\n\n- `classList`对象有下列方法\n  - `add()`：增加一个 class。\n  - `remove()`：移除一个 class。\n  - `contains()`：检查当前元素是否包含某个 class。\n  - `toggle()`：将某个 class 移入或移出当前元素。\n\n```javascript\nvar div = document.getElementById('myDiv');\ndiv.classList.add('myCssClass');\ndiv.classList.add('foo', 'bar');\ndiv.classList.remove('myCssClass');\ndiv.classList.toggle('myCssClass'); // 如果myCssClass 不存在就加入，否则移除\ndiv.classList.contains('myCssClass'); // 返回 true 或者 false\n```\n\n### Element.innerHTML\n\n`Element.innerHTML`属性返回一个字符串，等同于该元素包含的所有HTML 代码。该属性可读写，常用来设置某个节点的内容。它能改写所有元素节点的内容，包括`<HTML>`和`<body>`元素\n\n```javascript\nel.innerHTML = '';\n```\n\n### Element.innerText\n\n`innerText`和`innerHTML`类似，不同的是`innerText`无法识别元素，会直接渲染成字符串\n\n## Element获取元素位置\n\n|     属性     |                             描述                             |\n| :----------: | :----------------------------------------------------------: |\n| clientHeight | 获取元素高度包括`padding`部分，但是不包括`border`、 `margin` |\n| clientWidth  | 获取元素宽度包括`padding`部分，但是不包括`border`、 `margin` |\n| scrollHeight | 元素总高度，它包括`padding`，但是不包括`border`、`margin`包括溢出的不可见内容 |\n| scrollWidth  | 元素总宽度，它包括`padding`，但是不包括`border`、`margin`包括溢出的不可见内容 |\n|  scrollLeft  |              元素的水平滚动条向右滚动的像素数量              |\n|  scrollTop   |              元素的垂直滚动条向下滚动的像素数量              |\n| offsetHeight | 元素的 CSS 垂直高度（单位像素），包括元素本身的高度、`padding`和`border` |\n| offsetWidth  | 元素的 CSS 水平宽度（单位像素），包括元素本身的高度、`padding`和`border` |\n|  offsetLeft  |                    到定位父级左边界的间距                    |\n|  offsetTop   |                    到定位父级上边界的间距                    |\n\n### Element.clientHeight，Element.clientWidth\n\n`Element.clientHeight`属性返回一个整数值，表示元素节点的 CSS 高度（单位像素），只对块级元素生效，对于行内元素返回`0`。如果块级元素没有设置 CSS 高度，则返回实际高度\n除了元素本身的高度，它还包括`padding`部分，但是不包括`border`、`margin`。如果有水平滚动条，还要减去水平滚动条的高度。注意，这个值始终是整数，如果是小数会被四舍五入。\n`Element.clientWidth`属性返回元素节点的 CSS 宽度，同样只对块级元素有效，也是只包括元素本身的宽度和`padding`，如果有垂直滚动条，还要减去垂直滚动条的宽度。\n`document.documentElement`的`clientHeight`属性，返回当前视口的高度（即浏览器窗口的高度）。 `document.body`的高度则是网页的实际高度。\n\n```javascript\n// 视口高度\ndocument.documentElement.clientHeight\n// 网页总高度\ndocument.body.clientHeight\n```\n\n### Element.scrollHeight，Element.scrollWidth\n\n`Element.scrollHeight` 属性返回一个整数值（小数会四舍五入），表示当前元素的总高度（单位像素），它包括 `padding` ，但是不包括 `border` 、`margin` 以及水平滚动条的高度（如果有水平滚动条的话）\n\n`Element.scrollWidth` 属性表示当前元素的总宽度（单位像素），其他地方都与 `scrollHeight` 属性类似。这两个属性只读\n\n整张网页的总高度可以从 `document.documentElement` 或 `document.body` 上读取\n\n```javascript\n// 返回网页的总高度\ndocument.documentElement.scrollHeight\ndocument.body.scrollHeight\n```\n\n### Element.scrollLeft，Element.scrollTop\n\n`Element.scrollLeft` 属性表示当前元素的水平滚动条向右侧滚动的像素数量， `Element.scrollTop` 属性表示当前元素的垂直滚动条向下滚动的像素数量。对于那些没有滚动条的网页元素，这两个属性总是等于0如果要查看整张网页的水平的和垂直的滚动距离，要从`document.documentElement` 元素上读取\n\n```javascript\ndocument.documentElement.scrollLeft\ndocument.documentElement.scrollTop\n```\n\n### Element.offsetHeight，Element.offsetWidth\n\n`Element.offsetHeight` 属性返回一个整数，表示元素的 CSS 垂直高度（单位像素），包括元素本身的高度、`padding` 和 `border`，以及水平滚动条的高度（如果存在滚动条）。\n`Element.offsetWidth` 属性表示元素的 CSS 水平宽度（单位像素），其他都与 `Element.offsetHeight` 一致。\n这两个属性都是只读属性，只比 `Element.clientHeight` 和 `Element.clientWidth` 多了边框的高度或宽度。如果元素的 CSS 设为不可见（比如 `display:none;` ），则返回 0\n\n### Element.offsetLeft，Element.offsetTop\n\n`Element.offsetLeft`返回当前元素左上角相对于`Element.offsetParent`节点的水平位移，`Element.offsetTop`返回垂直位移，单位为像素。通常，这两个值是指相对于父节点的位移\n\n```html\n<div class=\"parent\">\n    <div class=\"box\" id=\"box\"></div>\n</div>\n```\n\n```css\n.parent{\n    width: 200px;\n    height: 200px;\n    background: red;\n    position: relative;\n    left: 50px;\n    top: 50px;\n}\n.box{\n    width: 100px;\n    height: 100px;\n    background: yellow;\n    position: relative;\n    left: 50px;\n    top: 50px;\n}\n```\n\n```javascript\nvar box = document.getElementById(\"box\");\nconsole.log(box.offsetLeft);\nconsole.log(box.offsetTop);\n```\n\n## CSS操作\n\n### HTML元素的style属性\n\n操作 CSS 样式最简单的方法，就是使用网页元素节点的 `setAttribute` 方法直接操作网页元素的 `style` 属性\n\n```javascript\ndiv.setAttribute(\n  'style',\n  'background-color:red;' + 'border:1px solid black;'\n);\n```\n\n### 元素节点的style属性\n\n```javascript\nvar divStyle = document.querySelector('div').style;\ndivStyle.backgroundColor = 'red';\ndivStyle.border = '1px solid black';\ndivStyle.width = '100px';\ndivStyle.height = '100px';\ndivStyle.fontSize = '10em';\n```\n\n### cssText属性\n\n```javascript\nvar divStyle = document.querySelector('div').style;\ndivStyle.cssText = 'background-color: red;'\n  + 'border: 1px solid black;'\n  + 'height: 100px;'\n  + 'width: 100px;';\n```\n\n## 事件处理程序\n\n事件处理程序分为：\n\n1. HTML事件处理\n2. DOM0级事件处理\n3. DOM2级事件处理\n\n### HTML事件\n\n```html\n<!DOCTYPE html>\n<html>\n    <head lang=\"en\">\n        <meta charset=\"UTF-8\">\n        <title>Js事件详解--事件处理</title>\n    </head>\n    <body>\n        <div id=\"div\">\n            <button id=\"btn1\" onclick=\"demo()\">按钮</button>\n        </div>\n        <script>\n            function demo(){\n                alert(\"hello html事件处理\");\n            }\n        </script>\n    </body>\n</html>\n```\n\n### DOM0级事件处理\n\n```html\n<body>\n    <div id=\"div\">\n        <button id=\"btn1\">按钮</button>\n    </div>\n    <script>\n        var btn1 = document.getElementById(\"btn1\");\n        btn1.onclick = function(){alert(\"Hello DOM0级事件处理程序1\");}//被覆盖掉\n        btn1.onclick = function(){alert(\"Hello DOM0级事件处理程序2\");}\n    </script>\n</body>\n```\n\n### DOM2级事件处理\n\n```html\n<body>\n    <div id=\"div\">\n        <button id=\"btn1\">按钮</button>\n    </div>\n    <script>\n        var btn1 = document.getElementById(\"btn1\");\n        btn1.addEventListener(\"click\", demo1);\n        btn1.addEventListener(\"click\", demo2);\n        btn1.addEventListener(\"click\", demo3);\n        function demo1(){\n            alert(\"DOM2级事件处理程序1\")\n        }\n        function demo2(){\n            alert(\"DOM2级事件处理程序2\")\n        }\n        function demo3(){\n            alert(\"DOM2级事件处理程序3\")\n        }\n        btn1.removeEventListener(\"click\",demo2);\n    </script>\n</body>\n```\n\n## 事件类型之鼠标事件\n\n### 鼠标事件\n\n- 鼠标事件指与鼠标相关的事件，具体的事件主要有以下一些\n  - click：按下鼠标时触发\n  - dblclick：在同一个元素上双击鼠标时触发\n  - mousedown：按下鼠标键时触发\n  - mouseup：释放按下的鼠标键时触发\n  - mousemove：当鼠标在节点内部移动时触发。当鼠标持续移动时，该事件会连触发。\n  - mouseenter：鼠标进入一个节点时触发，进入子节点不会触发这个事件\n  - mouseleave：鼠标离开一个节点时触发，离开父节点不会触发这个事件\n  - mouseover：鼠标进入一个节点时触发，进入子节点会再一次触发这个事件\n  - mouseout：鼠标离开一个节点时触发，离开父节点也会触发这个事件\n  - wheel：滚动鼠标的滚轮时触发\n\n> 这些方法在使用的时候，除了DOM2级事件，都需要添加前缀`on`\n\n```javascript\nvar btn1 = document.getElementById(\"btn1\");\nbtn1.onclick = function(){\n    console.log(\"click事件\");\n} \n```\n\n## Event事件对象\n\n事件发生以后，会产生一个事件对象，作为参数传给监听函数\n\n### Event对象属性\n\n#### Event.Target\n\nEvent.target属性返回事件当前所在的节点\n\n```javascript\n// HTML代码为\n// <p id=\"para\">Hello</p>\nfunction setColor(e) {\n  console.log(this === e.target);\n  e.target.style.color = 'red';\n}\npara.addEventListener('click', setColor);\n```\n\n#### Event.type\n\nEvent.type属性返回一个字符串，表示事件类型。事件的类型是在生成事件的时候。该属性只读\n\n### Event对象方法\n\n#### Event.preventDefault\n\n`Event.preventDefault`方法取消浏览器对当前事件的默认行为。比如点击链接后，浏览器默认会跳转到另一个页面，使用这个方法以后，就不会跳转了\n\n```javascript\nbtn.onclick = function(e){\n    e.preventDefault(); // 阻止默认事件\n    console.log(\"点击A标签\");\n}\n```\n\n#### Event.stopPropagation\n\n`stopPropagation`方法阻止事件在 DOM 中继续传播，防止再触发定义在别的节点上的监听函数，但是不包括在当前节点上其他的事件监听函数\n\n```javascript\nbtn.onclick = function(e){\n    e.stopPropagation(); // 阻止事件冒泡\n    console.log(\"btn\");\n}\n```\n\n## 事件类型之键盘事件\n\n键盘事件由用户击打键盘触发，主要有keydown、keypress、keyup三个事件\n\n1. keydown：按下键盘时触发。\n2. keypress：按下有值的键时触发，即按下 Ctrl、Alt、Shift、Meta 这样无值的键，这个事件不会触\n   发。对于有值的键，按下时先触发keydown事件，再触发这个事件。\n3. keyup：松开键盘时触发该事件\n\n```javascript\nusername.onkeypress = function(e){\n    console.log(\"keypress事件\");\n}\n```\n\n### event对象\n\n`keyCode`:唯一标识\n\n```javascript\nvar username = document.getElementById(\"username\");\nusername.onkeydown = function(e){\n    if(e.keyCode === 13){\n        console.log(\"回车\");\n   }\n}\n```\n\n## 事件类型之表单事件\n\n表单事件是在使用表单元素及输入框元素可以监听的一系列事件\n\n### input事件\n\ninput事件当`<input>`、`<select>`、`<textarea>`的值发生变化时触发。对于复选框（`<input type=checkbox>`）或单选框（<input type=radio>`），用户改变选项时，也会触发这个事件\n\ninput事件的一个特点，就是会连续触发，比如用户每按下一次按键，就会触发一次input事件。\n\n```javascript\nvar username =\ndocument.getElementById(\"username\");\nusername.oninput = function(e){\n    console.log(e.target.value);\n}\n```\n\n### select事件\n\nselect事件当在`<input>`、`<textarea>`里面选中文本时触发\n\n```javascript\n// HTML 代码如下\n// <input id=\"test\" type=\"text\" value=\"Select me!\" />\nvar elem = document.getElementById('test');\nelem.addEventListener('select', function (e)\n{\n  console.log(e.type); // \"select\"\n}, false);\n```\n\n### Change 事件\n\nChange事件当 `<input>`、`<select>`、`<textarea>` 的值发生变化时触发。它与input事件的最大不同，就是不会连续触发，只有当全部修改完成时才会触发\n\n```javascript\nvar email = document.getElementById(\"email\");\nemail.onchange = function(e){\n    console.log(e.target.value);\n}\n```\n\n### reset 事件，submit 事件\n\n这两个事件发生在表单对象 `<form>` 上，而不是发生在表单的成员上。\nreset事件当表单重置（所有表单成员变回默认值）时触发。\nsubmit事件当表单数据向服务器提交时触发。注意，`submit`事件的发生对象是`<form>`元素，而不是`<button>` 元素，因为提交的是表单，而不是按钮\n\n```html\n<form id=\"myForm\" onsubmit=\"submitHandle\">\n    <button onclick=\"resetHandle\">重置数据</button>\n    <button>提交</button>\n</form>\n```\n\n```javascript\nvar myForm = document.getElementById(\"myForm\")\nfunction resetHandle(){\n    myForm.reset();\n}\nfunction submitHandle(){\n    console.log(\"提交\");\n}\n```\n\n## 事件代理(事件委托)\n\n由于事件会在冒泡阶段向上传播到父节点，因此可以把子节点的监听函数定义在父节点上，由父节点的监听函数统一处理多个子元素的事件。这种方法叫做事件的代理（delegation）\n\n```javascript\nvar ul = document.querySelector('ul');\n\nul.addEventListener('click', function (event){\n  if (event.target.tagName.toLowerCase() === 'li') {\n    // some code\n  }\n});\n```\n\n## 定时器\n\nJavaScript 提供定时执行代码的功能，叫做定时器（timer），主要由 `setTimeout()` 和 `setInterval()` 这两个函数来完成。它们向任务队列添加定时任务\n\n### setTimeout()\n\n`setTimeout` 函数用来指定某个函数或某段代码，在多少毫秒之后执行。它返回一个整数，表示定时器的编号，以后可以用来取消这个定时器。\n\n```javascript\nvar timerId = setTimeout(func|code, delay);\n```\n\n`setTimeout` 函数接受两个参数，第一个参数 `func | code` 是将要推迟执行的函数名或者一段代码，第二个参数 `delay` 是推迟执行的毫秒数\n\n```javascript\nsetTimeout(function(){\n    console.log(\"定时器\")\n},1000)\n```\n\n> **温馨提示**\n>\n> 还有一个需要注意的地方，如果回调函数是对象的方法，那么`setTimeout`使得方法内部的 `this` 关键字指向全局环境，而不是定义时所在的那个对象\n\n```javascript\nvar name = \"sxt\";\nvar user = {\n    name: \"itbaizhan\",\n    getName: function () {\n        /* setTimeout(function(){\n            console.log(this.name);\n        },1000) */\n        // 上述改为\n        var that = this;\n        setTimeout(function(){\n            console.log(that.name);\n        },1000)\n    }\n};\nuser.getName();\n```\n\n定时器可以取消\n\n```javascript\nvar id = setTimeout(f, 1000);\nclearTimeout(id);\n```\n\n### setInterval()\n\n`setInterval` 函数的用法与 `setTimeout` 完全一致，区别仅仅在于 `setInterval` 指定某个任务每隔一段时间就执行一次，也就是无限次的定时执行\n\n```javascript\nvar timer = setInterval(function() {\n  console.log(2);\n}, 1000)\n```\n\n通过setInterval方法实现网页动画\n\n```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial￾scale=1.0\">\n    <title>Document</title>\n    <style>\n        #someDiv{\n            width: 100px;\n            height: 100px;\n            background: red;\n        }\n    </style>\n</head>\n<body>\n    <div id=\"someDiv\"></div>\n    <script>\n    var div = document.getElementById('someDiv');\n    var opacity = 1;\n    var fader = setInterval(function() {\n        opacity -= 0.05;\n        if (opacity > 0) {\n            div.style.opacity = opacity;\n        } else {\n            clearInterval(fader);\n        }\n    }, 30);\n    </script>\n</body>\n</html>\n```\n\n定时器可以进行取消\n\n```javascript\nvar id = setInterval(f, 1000);\nclearInterval(id);\n```\n\n## 防抖(debounce)\n\n防抖严格算起来应该属于性能优化的知识，但实际上遇到的频率相当高，处理不当或者放任不管就容易引起浏览器卡死。\n从滚动条监听的例子说起\n\n```javascript\nfunction showTop () {\n    var scrollTop =\ndocument.documentElement.scrollTop;\n    console.log('滚动条位置：' + scrollTop);\n}\nwindow.onscroll  = showTop\n```\n\n以上这个函数的默认执行频率太高了，接下来进行优化\n\n```javascript\nfunction debounce(fn,delay){\n    let timer = null //借助闭包\n    return function() {\n        if(timer){\n            clearTimeout(timer)\n       }\n        timer = setTimeout(fn,delay) // 简化写法\n   }\n}\n// 然后是旧代码\nfunction showTop () {\n    var scrollTop = document.documentElement.scrollTop;\n    console.log('滚动条位置：' + scrollTop);\n}\nwindow.onscroll = debounce(showTop,300)\n```\n\n> **防抖定义**\n> 对于短时间内连续触发的事件（上面的滚动事件），防抖的含义就是让某个时间期限（如上面的1000毫秒）内，事件处理函数只执行一次\n\n## 节流(throttle)\n\n节流严格算起来应该属于性能优化的知识，但实际上遇到的频率相当高，处理不当或者放任不管就容易引起浏览器卡死\n\n```javascript\nfunction throttle(fn,delay){\n    let valid = true\n    return function() {\n       if(!valid){\n           //休息时间 暂不接客\n           return false\n       }\n       // 工作时间，执行函数并且在间隔期内把状态位设为无效\n        valid = false\n        setTimeout(function(){\n            fn()\n            valid = true;\n       }, delay)\n   }\n}\nfunction showTop () {\n    var scrollTop = document.documentElement.scrollTop;\n    console.log('滚动条位置：' + scrollTop);\n}\nwindow.onscroll = throttle(showTop,300)\n```",
+      "category": "notes",
+      "tags": [
+        "web前端",
+        "Javascript"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 8690,
+      "readingTime": 29,
+      "viewCount": 0,
+      "groupSlug": "front-end",
+      "groupTitle": "前端",
+      "order": 1
+    },
+    {
+      "id": "es6-learn",
+      "title": "ES6",
+      "slug": "es6-learn",
+      "excerpt": "ES6基础",
+      "content": "# ES6\n\n## Nodejs环境安装\n\nNodejs安装：官网https://nodejs.org/en/\n\nnpm安装：(阿里镜像https://npmmirror.com/)\n\n```powershell\nnpm install -g cnpm --registry=https://registry.npmmirror.com\n```\n\n## Babel转码器\n\n浏览器支持性查看https://caniuse.com/\n\nBabel官网https://babeljs.io/\n\n### 安装流程\n\n1. 安装Babel\n\n   ```powershell\n   npm install --save-dev @babel/core\n   ```\n\n2. 配置文件`.babelrc`\n\n   Babel 的配置文件是.babelrc，存放在项目的根目录下。\n\n   基本格式：\n\n   ```json\n   {\n     \"presets\": [],\n     \"plugins\": []\n   }\n   ```\n\n3. 转码规则\n\n   presets字段设定转码规则，官方提供以下的规则集，你可以根据需要安装\n\n   ```powershell\n   npm install --save-dev @babel/preset-env\n   ```\n\n4. 将规则加入`.babelrc`\n\n   ```json\n   {\n       \"presets\": [\n         \"@babel/env\"\n       ],\n       \"plugins\": []\n   }\n   ```\n\n### Babel命令行转码\n\nBabel 提供命令行工具`@babel/cli`，用于命令行转码\n\n```powershell\nnpm install --save-dev @babel/cli\n```\n\n基本用法\n\n```powershell\n# 转码结果输出到标准输出\nnpx babel example.js\n\n# 转码结果写入一个文件\n# --out-file 或 -o 参数指定输出文件\nnpx babel example.js --out-file compiled.js\n# 或者\nnpx babel example.js -o compiled.js\n\n# 整个目录转码\n# --out-dir 或 -d 参数指定输出目录\nnpx babel src --out-dir lib\n# 或者\nnpx babel src -d lib\n```\n\n## let命令\n\n用法类似`var`，但只在所在代码块内有效\n\n### let块级作用域\n\n```javascript\n{\n  let itbaizhan = 10;\n  var sxt = 1;\n}\nitbaizhan // ReferenceError: itbaizhan is not defined.\nsxt // 1\n```\n\n对比`var`和`let`在循环中的应用\n\n```javascript\nvar a = [];\nfor (var i = 0; i < 10; i++) {\n  a[i] = function () {\n    console.log(i);\n  };\n}\na[6](); // 10\n\nvar a = [];\nfor (let i = 0; i < 10; i++) {\n  a[i] = function () {\n    console.log(i);\n  };\n}\na[6](); // 6\n```\n\n### let不存在变量提升\n\n```javascript\n// var 的情况\nconsole.log(foo); // 输出undefined\nvar foo = 2;\n// let 的情况\nconsole.log(bar); // 报错ReferenceError\nlet bar = 2;\n```\n\n### let不允许重复声明\n\n不允许在相同作用域内，重复声明同一个变量。\n\n## const命令\n\n`const`声明一个只读的常量。一旦声明，常量的值就不能改变\n\n```javascript\nconst PI = 3.1415;\nPI // 3.1415\nPI = 3;\n// TypeError: Assignment to constant variable.\n```\n\n`const`声明的变量不得改变值，这意味着， `const`一旦声明变量，就必须立即初始化，不能留到以后赋值\n\n```javascript\nconst foo;\n// SyntaxError: Missing initializer in const declaration\n```\n\n`const`的作用域与let命令相同：只在声明所在的块级作用域内有效\n\n`const`命令声明的常量也是不存在提升\n\n`const`声明的常量，也与`let`一样不可重复声明\n\n## 对象解构赋值\n\n解构可以用于对象\n\n```javascript\nlet {name, age} = {name: \"iwen\", age: 20};\n```\n\n> **温馨提示**\n> 对象的属性没有次序，变量必须与属性同名，才能取到正确的值\n\n对象的解构赋值，可以很方便地将现有对象的方法，赋值到某个变量\n\n```javascript\nlet { random,floor } = Math;\nlet { log } = console;     // 可以用log代替console.log来打印\n```\n\n注意事项，如果要将一个已经声明的变量用于解构赋值，必须非常小心\n\n```javascript\nlet hello = \"Hello\";\nlet { hello } = {hello:\"hello world\"}; // 报错\n\nlet hello = \"Hello\";\n({ hello } = {hello:\"hello world\"}); // 正确  \"hello world\"\n```\n\n## 字符串扩展\n\n### 字符串Unicode 表示法\n\nES6 加强了对 Unicode 的支持，允许采用`\\uxxxx`形式表示一个字符，其中`xxxx`表示字符的 Unicode 码点。\n\n### 字符串遍历器接口\n\nfor...of 循环遍历\n\n```javascript\nfor (let i of 'itbaizhan') {\n  console.log(i);\n}\n```\n\n### 模板字符串\n\n模板字符串（template string）是增强版的字符串，用反引号（`）标识。它可以当作普通字符串使用，也可以用来定义多行字符串，或者在字符串中嵌入变量\n\n```javascript\nlet url = \"www.itbaizhan.com\"\nlet h1 = \"<a href='\"+ url +\"'>itbaizhan</a>\"\nlet h2 = `<a href='${url}'>itbaizhan</a>`\n```\n\n## 字符串新增方法\n\n### includes(), startsWith(), endsWith()\n\n传统上，JavaScript 只有`indexOf 方法`可以用来确定一个字符串是否包含在另一个字符串中。ES6 又提供了三种新方法\n\n1. includes()：返回布尔值，表示是否找到了参数字符串\n2. startsWith()：返回布尔值，表示参数字符串是否在原字符串的头部\n3. endsWith()：返回布尔值，表示参数字符串是否在原字符串的尾部\n\n```javascript\nlet s = 'Hello world!';\ns.startsWith('Hello') // true\ns.endsWith('!') // true\ns.includes('o') // true\n```\n\n这三个方法都支持第二个参数，表示开始搜索的位置\n\n```javascript\nlet s = 'Hello world!';\ns.startsWith('world', 6) // true\ns.endsWith('Hello', 5) // true\ns.includes('Hello', 6) // false\n```\n\n### repeat()\n\n`repeat`方法返回一个新字符串，表示将原字符串重复 n 次。\n\n```javascript\n'x'.repeat(3) // \"xxx\"\n'hello'.repeat(2) // \"hellohello\"\n'na'.repeat(0) // \"\"\n```\n\n### padStart()，padEnd()\n\nES2017 引入了字符串补全长度的功能。如果某个字符串不够指定长度，会在头部或尾部补全。`padStart()`用于头部补全，`padEnd()`用于尾部补全\n\n```javascript\n'x'.padStart(5, 'ab') // 'ababx'\n'x'.padStart(4, 'ab') // 'abax'\n\n'x'.padEnd(5, 'ab') // 'xabab'\n'x'.padEnd(4, 'ab') // 'xaba'\n```\n\n### trimStart()，trimEnd()\n\nES2019对字符串实例新增了`trimStart()`和`trimEnd()`这两个方法。它们的行为与`trim()`一致，`trimStart()`消除字符串头部的空格，`trimEnd()`消除尾部的空格。它们返回的都是新字符串，不会修改原始字符串。\n\n### at()\n\n`at()`方法接受一个整数作为参数，返回参数指定位置的字符，支持负索引（即倒数的位置）。\n\n> 若超出范围，返回`undefined`\n\n## 数组扩展_扩展运算符\n\n扩展运算符（spread）是三个点（`...`）。将一个数组转为用逗号分隔的参数序列\n\n```javascript\nconsole.log(...[1, 2, 3])\n// 1 2 3\nconsole.log(1, ...[2, 3, 4], 5)\n// 1 2 3 4 5\n```\n\n### 替代函数的 apply 方法\n\n```javascript\n// ES5 的写法\nMath.max.apply(null, [14, 3, 77])\n// ES6 的写法\nMath.max(...[14, 3, 77])\n// 等同于\nMath.max(14, 3, 77);\n```\n\n### 合并数组\n\n```javascript\nconst arr1 = ['a', 'b'];\nconst arr2 = ['c'];\nconst arr3 = ['d', 'e'];\n// ES5 的合并数组\narr1.concat(arr2, arr3);\n// [ 'a', 'b', 'c', 'd', 'e' ]\n// ES6 的合并数组\n[...arr1, ...arr2, ...arr3]\n// [ 'a', 'b', 'c', 'd', 'e' ]\n```\n\n## 数组扩展_新增方法\n\n### Array.from()\n\n`Array.from`方法用于将类数组转为真正的数组\n\n> 常见的类数组有三类：\n>\n> 1. arguments\n>\n> 2. 元素集合\n> 3. 类似数组的对象\n\n#### arguments\n\n```javascript\nfunction add(){\n    let collect = Array.from(arguments);\n    collect.push(40);\n    console.log(collect);\n}\nadd(10,20,30)\n```\n\n#### 元素集合\n\n```javascript\nlet divs = document.querySelectorAll('div');\nconsole.log(Array.from(divs));\n```\n\n#### 类似数组的对象\n\n```javascript\nlet arrayLike = {\n    '0': 'a',\n    '1': 'b',\n    '2': 'c',\n    length: 3\n};\nlet arr = Array.from(arrayLike);\nconsole.log(arr);\n```\n\n### Array.of()\n\n`Array.of()`方法用于将一组值，转换为数组\n\n```javascript\nArray.of(3, 11, 8) // [3,11,8]\n```\n\n## 对象的扩展\n\n### 属性的简洁表示法\n\nES6 允许在大括号里面，直接写入变量和函数，作为对象的属性和方法。这样的书写更加简洁\n\n```javascript\nlet name = \"iwen\"\nconst user = {\n    name,\n    age:20\n}\n```\n\n除了属性简写，方法也可以简写\n\n```javascript\nconst o = {\n  method() {\n    return \"Hello!\";\n }\n};\n// 等同于\nconst o = {\n  method: function() {\n    return \"Hello!\";\n }\n};\n```\n\n这种写法用于函数的返回值，将会非常方便\n\n```javascript\nfunction getPoint() {\n  const x = 1;\n  const y = 10;\n  return {x, y};\n}\ngetPoint() // {x:1, y:10}\n```\n\n### 属性名表达式\n\nES6 允许字面量定义对象时，用表达式作为对象的属性名，即把表达式放在方括号内\n\n```javascript\nlet propKey = 'itbaizhan';\nlet obj = {\n [propKey]: true,\n ['a' + 'bc']: 123\n};\n```\n\n### 对象的扩展运算符\n\nES2018 将这个运算符引入了对象\n\n```javascript\nlet z = { a: 3, b: 4 };\nlet n = { ...z };\nconsole.log(n);\n\n{...{}, a: 1}\n// { a: 1 }\n```\n\n## 函数的扩展_箭头函数\n\n### 基本用法\n\nES6 允许使用“箭头”（ ` =>` ）定义函数\n\n```javascript\nvar add = (x) => x;\n// 等同于\nvar add = function (x) {\n    return x;\n};\n```\n\n如果箭头函数不需要参数或需要多个参数，就使用一个圆括号代表参数部分\n\n```javascript\nvar add = (x,y) => x+y;\n// 等同于\nvar add = function (x,y) {\n    return x+y;\n};\n\nvar add = () => 100;\n// 等同于\nvar add = function () {\n    return 100;\n};\n```\n\n如果箭头函数的代码块部分多于一条语句，就要使用大括号将它们括起来，并且使用 `return` 语句返回\n\n```javascript\nvar add = (x,y) => {\n    var z = 10;\n    return x+y+z\n};\n// 等同于\nvar add = function (x,y) {\n    var z = 100\n    return x+y+z\n};\n```\n\n由于大括号被解释为代码块，所以如果箭头函数直接返回一个对象，必须在对象外面加上括号，否则会报错\n\n```javascript\nvar add = (x,y) => ({x:10,y:20});\n```\n\n箭头函数的一个用处是简化回调函数（匿名函数）\n\n```javascript\nvar arr = [10,20,30]\narr.map(item =>{\n    console.log(item);\n})\n```\n\n### 使用注意点\n\n对于普通函数来说，内部的 `this` 指向函数运行时所在的对象，但是这一点对箭头函数不成立。它没有自己的 `this` 对象，内部的 `this` 就是定义时上层作用域中的 `this`\n\n```javascript\nvar name = \"itbaizhan\"\nvar user = {\n    name:\"iwen\",\n    getName(){\n        setTimeout(() =>{\n            console.log(this.name); // iwen\n       })\n   }\n}\nuser.getName()\n```\n\n> **温馨提示**\n>\n> 箭头函数里面根本没有自己的 this ，而是引用外层的 this\n\n## set数据结构\n\n### 基本用法\n\nES6 提供了新的数据结构 Set。它类似于数组，但是成员的值都是唯一的，没有重复的值。\n\n`Set`本身是一个构造函数，用来生成 Set 数据结构。\n\n```javascript\nconst s = new Set();\n[2, 3, 5, 4, 5, 2, 2].forEach(x => s.add(x));\nfor (let i of s) {\n  console.log(i);\n}\n// 2 3 5 4\n```\n\n`set`函数可以接受一个数组作为参考\n\n```javascript\nconst set = new Set([1, 2, 3, 4, 4]);\n[...set]\n// [1, 2, 3, 4]\n```\n\n数组去除重复成员的方法\n\n```javascript\n// 去除数组的重复成员\n[...new Set(array)]\n```\n\n字符串去除重复字符\n\n```javascript\n[...new Set('ababbc')].join('')\n// \"abc\"\n```\n\n向 Set 加入值的时候，不会发生类型转换，所以 `5` 和 `\"5\"` 是两个不同的值。\n\n```javascript\nvar mySet = new Set();\nmySet.add(\"5\")\nmySet.add(5)\nconsole.log(mySet); // Set(2) {'5', 5}\n```\n\n### size属性\n\n返回 Set 实例的成员总数\n\n```javascript\nconst items = new Set([1, 2, 3, 4, 5, 5, 5, 5]);\nitems.size // 5\n```\n\n### 方法\n\n#### add()\n\nset 添加方法\n\n```javascript\nvar mySet = new Set();\nmySet.add(\"5\")\nconsole.log(mySet);\n```\n\n#### delete()\n\n删除某个值，返回一个布尔值，表示删除是否\n\n```javascript\nvar mySet = new Set();\nmySet.add(\"5\")\nvar flag = mySet.delete(\"5\");\nconsole.log(flag);  // true\n```\n\n#### has()\n\n返回一个布尔值，表示该值是否为 Set 的成员\n\n```javascript\nvar mySet = new Set();\nmySet.add(\"5\")\nvar flag = mySet.has(\"5\");\nconsole.log(flag);  // true\n```\n\n#### clear()\n\n清除所有成员，没有返回值\n\n```javascript\nvar mySet = new Set();\nmySet.add(\"5\")\nmySet.clear();\nconsole.log(mySet);  // Set(0) {size: 0}\n```\n\n## Promise对象\n\n### 基本概念\n\nPromise 是异步编程的一种解决方案，比传统的解决方案——回调函数和事件——更合理和更强大。它由社区最早提出和实现，ES6将其写进了语言标准，统一了用法，原生提供了 Promise 对象\n所谓 Promise ，简单说就是一个容器，里面保存着某个未来才会结束的事件（通常是一个异步操作）的结果。从语法上说，Promise 是一个对象，从它可以获取异步操作的消息。Promise 提供统一的API，各种异步操作都可以用同样的方法进行处理\n\n有了 Promise 对象，就可以将异步操作以同步操作的流程表达出来，避免了层层嵌套的回调函数。此外，Promise 对象提供统一的接口，使得控制异步操作更加容易\n\n### 基本用法\n\nES6 规定， Promise 对象是一个构造函数，用来生成 Promise 实例\n\n```javascript\nconst promise = new Promise(function(resolve, reject) {\n  // ... some code\n  if (/* 异步操作成功 */){\n    resolve(value);\n  } else {\n    reject(error);\n  }\n});\n```\n\nPromise 构造函数接受一个函数作为参数，该函数的两个参数分别是`resolve` 和 `reject` 。它们是两个函数，由 JavaScript 引擎提供，不用自己部署\nPromise 实例生成以后，可以用 `then` 方法分别指定 `resolved`状态和 `rejected`状态的回调函数。\n\n```javascript\npromise.then(function(value) {\n  // success\n}, function(error) {\n  // failure\n});\n```\n\n### 加载图片资源例子\n\n```html\n<!DOCTYPE html>\n<html lang=\"en\">\n\n<head>\n\t<meta charset=\"UTF-8\">\n\t<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n\t<title>Document</title>\n\t<script src=\"https://code.jquery.com/jquery-3.6.0.min.js\"></script>\n</head>\n\n<body>\n\t<div></div>\n\t<script>\n\t\tfunction loadImageAsync(url) {\n\t\t\tvar promise = new Promise(function (resolve, reject) {\n\t\t\t\tconst image = new Image();\n\t\t\t\timage.onload = function () {\n\t\t\t\t\tresolve(image);\n\t\t\t\t};\n\t\t\t\timage.onerror = function () {\n\t\t\t\t\treject(new Error('Could not load image at ' + url));\n\t\t\t\t};\n\t\t\t\timage.src = url;\n\t\t\t});\n\t\t\treturn promise;\n\t\t}\n\n\t\tloadImageAsync(\"http://iwenwiki.com/api/vue-data/vue-data-1.png\")\n\t\t\t.then(function (data) {\n\t\t\t\tconsole.log(data);\n\t\t\t\t$(\"div\").append(data)\n\t\t\t}, function (error) {\n\t\t\t\t$(\"div\").html(error)\n\t\t\t})\n\t</script>\n</body>\n    \n</html>\n```\n\n## Promise对象_Ajax实操\n\nPromise封装Ajax，让网络请求的异步操作变得更简单\n\n```html\n<!DOCTYPE html>\n<html lang=\"en\">\n\n<head>\n\t<meta charset=\"UTF-8\">\n\t<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n\t<meta name=\"viewport\" content=\"width=device-width, initial￾scale=1.0\">\n\t<title>Document</title>\n</head>\n\n<body>\n\t<script>\n\t\tconst getJSON = function (url) {\n\t\t\tconst promise = new Promise(function (resolve, reject) {\n\t\t\t\tconst handler = function () {\n\t\t\t\t\tif (this.readyState !== 4) {\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\tif (this.status === 200) {\n\t\t\t\t\t\tresolve(this.response);\n\t\t\t\t\t} else {\n\t\t\t\t\t\treject(new Error(this.statusText));\n\t\t\t\t\t}\n\t\t\t\t};\n\t\t\t\tconst client = new XMLHttpRequest();\n\t\t\t\tclient.open(\"GET\", url);\n\t\t\t\tclient.onreadystatechange = handler;\n\t\t\t\tclient.responseType = \"json\";\n\t\t\t\tclient.setRequestHeader(\"Accept\", \"application/json\");\n\t\t\t\tclient.send();\n\t\t\t});\n\t\t\treturn promise;\n\t\t};\n\n\t\tgetJSON(\"http://iwenwiki.com/api/blueberrypai/getIndexBanner.php\")\n\t\t\t.then(function (json) {\n\t\t\t\tconsole.log(json);\n\t\t\t}, function (error) {\n\t\t\t\tconsole.error('出错了', error);\n\t\t\t});\n\t</script>\n</body>\n\n</html>\n```\n\n## Async函数\n\nES2017 标准引入了 async 函数，使得异步操作变得更加方便async函数可以将异步操作变为同步操作\n\n### 示例代码\n\n```javascript\nfunction print(){\n    setTimeout(() =>{\n        console.log(\"定时器\");\n    },1000)\n    console.log(\"Hello\");\n}\nprint()\n```\n\n### 基本语法\n\n```javascript\nfunction timeout(ms) {\n  return new Promise((resolve) => {\n    setTimeout(resolve, ms);\n  });\n}\nasync function asyncPrint(value, ms) {\n  await timeout(ms);\n  console.log(value);\n}\nasyncPrint('hello world', 50);\n```\n\n### 异步应用\n\n```javascript\nfunction ajax(url) {\n  return new Promise(function (resolve, reject) {\n    $.getJSON(url, function (result) {\n      resolve(result)\n    }, function (error) {\n      reject(error)\n    })\n  })\n}\nasync function getInfo() {\n  let ids = await ajax(\"http://iwenwiki.com/api/generator/list.php\")\n  let names = await ajax(\"http://iwenwiki.com/api/generator/id.php?id=\" + ids[0])\n  let infos = await ajax(\"http://iwenwiki.com/api/generator/name.php?name=\" + names.name)\n  console.log(infos);\n}\ngetInfo();\n```\n\n## class基本用法\n\n### 类的由来\n\nJavaScript 语言中，生成实例对象的传统方法是通过构造函数\n\n```javascript\nfunction Point(x, y) {\n  this.x = x;\n  this.y = y;\n}\nPoint.prototype.toString = function () {\n  return '(' + this.x + ', ' + this.y + ')';\n};\nvar p = new Point(1, 2);\n```\n\nES6 提供了更接近传统语言的写法，引入了 Class（类）这个概念，作为对象的模板。通过 class 关键字，可以定义类\n\n基本上，ES6 的 class 可以看作只是一个语法糖，它的绝大部分功能，ES5 都可以做到，新的 class 写法只是让对象原型的写法更加清晰、更像面向对象编程的语法而已\n\n```javascript\nclass Point {\n  constructor(x, y) {\n    this.x = x;\n    this.y = y;\n  }\n  toString() {\n    return '(' + this.x + ', ' + this.y + ')';\n  }\n}\n```\n\n### constructor 方法\n\nconstructor() 方法是类的默认方法，通过 new 命令生成对象实例时，自动调用该方法。一个类必须有 constructor() 方法，如果没有显式定义，一个空的 constructor() 方法会被默认添加\n\n```javascript\nclass Point {\n}\n// 等同于\nclass Point {\n  constructor() {}\n}\n```\n\n### 类的实例\n\n生成类的实例的写法，与 ES5 完全一样，也是使用 new 命令\n\n```javascript\nclass Point {\n  // ...\n}\n// 报错\nvar point = Point(2, 3);\n// 正确\nvar point = new Point(2, 3);\n```\n\n### 注意点\n\n#### 不存在提升\n\n类不存在变量提升（hoist），这一点与 ES5 完全不同\n\n```javascript\nnew Foo(); // ReferenceError\nclass Foo {}\n```\n\n## class属性与方法\n\n### 实例方法\n\n通过类的实例对象调用方法\n\n```javascript\nclass People{\n    say(){\n        console.log(\"Hello\");\n    }\n}\nvar p = new People();\np.say()\n```\n\n### 实例属性\n\n实例属性指的是类的实例对象可调用的属性\n\n```javascript\nclass People{\n    constructor(name,age){\n        this.name = name;\n        this.age = age;\n   }\n    say(){\n        console.log(this.name,this.age);\n   }\n}\nvar p = new People(\"iwen\",20);\np.say()\nconsole.log(p.name,p.age);\n```\n\n### 静态方法\n\n类相当于实例的原型，所有在类中定义的方法，都会被实例继承。如果在一个方法前，加上 `static` 关键字，就表示该方法不会被实例继承，而是直接通过类来调用，这就称为“静态方法”\n\n```javascript\nclass Person {\n    static classMethod() {\n        console.log(\"Hello\");\n   }\n}\nPerson.classMethod() // Hello\nvar p = new Person();\np.classMethod() // p.classMethod is not a function\n```\n\n> **温馨提示**\n>\n> 注意，如果静态方法包含`this`关键字，这个`this`指的是类，而不是实例\n\n```javascript\nclass People {\n    static getSay() {\n        this.say();\n   }\n    static say() {\n        console.log('hello');\n   }\n    say() {\n        console.log('world');\n   }\n}\nPeople.getSay() // hello\n```\n\n### 静态属性\n\n静态属性指的是 Class 本身的属性，即 `Class.propName`\n\n```javascript\nclass People{}\nPeople.status = \"等待\"\nconsole.log(People.status);\n```\n\n## class的继承\n\nClass 可以通过 `extends` 关键字实现继承，让子类继承父类的属性和方法。`extends` 的写法比 ES5 的原型链继承，要清晰和方便很多\n\n```javascript\nclass Point {\n}\nclass ColorPoint extends Point {\n}\n```\n\nES6 规定，子类必须在 constructor() 方法中调用 super() ，否则就会报错，这是因为子类自己的 this 对象，必须先通过父类的构造函数完成塑造，得到与父类同样的实例属性和方法，然后再对其进行加工，添加子类自己的实例属性和方法。如果不调用 super() 方法，子类就得不到自己的 this 对象\n\n```javascript\nclass Point {\n    constructor(x,y){\n        this.x = x;\n        this.y = y;\n    }\n    getPoint(){\n        console.log(this.x,this.y);\n    }\n}\nclass ColorPoint extends Point {\n    constructor(x,y,z){\n        super(x,y)\n        this.z = z;\n    }\n}\nlet cp = new ColorPoint(10,20,30)\ncp.getPoint();\n```\n\n## Module语法\n\nES6 模块是通过 export 命令显式指定输出的代码，再通过 import 命令输入。\n\n```javascript\nexport var Hello = \"hello\" // hello.js文件\n\nimport { Hello } from \"./hello.js\" //index.js文件\n```\n\n### 测试方式\n\n我们采用Nodejs方式进行测试Module语法\n\n但是nodejs采用的是CommonJS的模块化规范，使用require引入模块；而import是ES6的模块化规范关键字。想要使用import，必须引入babel转义支持，通过babel进行编译，使其变成node的模块化代码\n\n**前端方式测试会更加麻烦，故由此调试**\n\n1. 全局安装babel-cli\n\n   ```powershell\n   npm install -g babel-cli\n   ```\n\n2. 安装babel-preset-env\n\n   ```powershell\n   npm install -D babel-preset-env\n   ```\n\n3. 运行代码\n\n   ```powershell\n   babel-node --presets env index.js\n   ```\n\n### export命令\n\nexport命令导出变量\n\n```javascript\nexport var firstName = 'sxt';\nexport var lastName = 'itbaizhan';\nexport var year = 2000;\n```\n\nexport命令导出函数\n\n```javascript\nexport function add(x, y) {\n  return x + y;\n};\n```\n\n### import命令\n\n使用 export 命令定义了模块的对外接口以后，其他 JS 文件就可以通过 import 命令加载这个模块\n\n```javascript\n// name.js\nexport var firstName = 'sxt';\nexport var lastName = 'itbaizhan';\nexport var year = 2000;\n// main.js\nimport { firstName, lastName, year } from './profile.js';\n```\n\n如果想为输入的变量重新取一个名字， import 命令要使用 as 关键字，将输入的变量重命名\n\n```javascript\n// value.js\nexport var value = 1;\n// main.js\nimport { value as val } from './value.js';\n```\n\n除了指定加载某个输出值，还可以使用整体加载，即用星号（ * ）指定一个对象，所有输出值都加载在这个对象上面\n\n```javascript\n// circle.js\nexport function area(radius) {\n  return Math.PI * radius * radius;\n}\nexport function circumference(radius) {\n  return 2 * Math.PI * radius;\n}\n// main.js\nimport { area, circumference } from './circle';\n// 可以修改如下\nimport * as circle from './circle';\n```\n\n### export default 命令\n\n从前面的例子可以看出，使用 import 命令的时候，用户需要知道所要加载的变量名或函数名，否则无法加载。但是，用户肯定希望快速上手，未必愿意阅读文档，去了解模块有哪些属性和方法为了给用户提供方便，让他们不用阅读文档就能加载模块，就要用到 export default 命令，为模块指定默认输出。\n\n```javascript\n// export-default.js\nexport default function () {\n  console.log('foo');\n}\n```\n\n其他模块加载该模块时， import 命令可以为该匿名函数指定任意名字\n\n```javascript\n// import-default.js\nimport customName from './export-default';\ncustomName(); // 'foo\n```",
+      "category": "notes",
+      "tags": [
+        "Javascript",
+        "web前端"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 4472,
+      "readingTime": 15,
+      "viewCount": 0,
+      "groupSlug": "front-end",
+      "groupTitle": "前端",
+      "order": 2
+    },
+    {
+      "id": "database-learn",
+      "title": "数据库学习",
+      "slug": "database-learn",
+      "excerpt": "MySQL数据库学习笔记（尚未完成）",
+      "content": "**启动与停止**\n\n```cmd\n管理员方式\nnet start mysql80\nnet stop mysql80\n```\n\n**连接方式**\n\n- MySQL提供的客户端命令行工具\n\n  打开MySQL 8.0 Command LineClient，输密码\n\n- 系统自带的命令行工具执行\n\n  ```cmd\n  mysql [-h 127.0.0.1] [-p 3306] -u root -p\n  ```\n\n- 服务器上\n\n  ```bash\n  sudo /etc/init.d/mysql start   #开启\n  sudo /etc/init.d/mysql stop    #停止\n  sudo /etc/init.d/mysql restart #重启\n  sudo service mysql stop        #停止\n  sudo mysql -u root -p          #进入\n  ```\n\n\n\n\n\n# 基础篇\n\n## 通用语法及分类\n\n### SQL通用语法\n\n1. SQL语句可以单行或多行书写，以分号结尾。\n2. SQL语句可以使用空格/缩进来增强语句的可读性。\n3. MySQL数据库的SQL语句不区分大小写，关键字建议使用大写。\n4. 注释：\n\t- 单行注释：`--`(后有空格)注释内容或`#`注释内容（MySQL特有）\n\t- 多行注释：`/*注释内容*/`\n\n### SQL分类\n\n| 分类 | 全称                       | 说明                                                   |\n| ---- | -------------------------- | ------------------------------------------------------ |\n| DDL  | Data Definition Language   | 数据定义语言，用来定义数据库对象(数据库，表，字段)     |\n| DML  | Data Manipulation Language | 数据操作语言，用来对数据库表中的数据进行增删改         |\n| DQL  | Data Query Language        | 数据查询语言，用来查询数据库中表的记录                 |\n| DCL  | Data Control Language      | 数据控制语言，用来创建数据库用户、控制数据库的访问权限 |\n\n## DDL-定义\n\n### 数据库操作\n\n- 查询\n\n  查询所有数据库\n\n  ```sql\n  show databases;\n  ```\n\n  查询当前数据库\n  ```sql\n  select database();\n  ```\n\n- 创建\n\n  ```sql\n  create database [if not exists] 数据库名 [default charset 字符集] [collate 排序规则];\n  ```\n\n- 删除\n\n  ```sql\n  drop database[if exists] 数据库名;\n  ```\n\n- 使用\n\n  ```sql\n  use 数据库名;\n  ```\n\n### 表操作\n\n#### 查询\n\n- 查询当前数据库所有表\n  ```sql\n  show tables;\n  ```\n- 查询表结构\n  ```sql\n  desc 表名;\n  ```\n- 查询指定表的建表语句\n  ```sql\n  show create table 表名;\n  ```\n\n#### 创建\n\n```sql\ncreate table 表名(\n\t字段1 字段1类型[comment 字段1注释],\n\t字段2 字段2类型[comment 字段2注释],\n\t字段3 字段3类型[comment 字段3注释],\n    ......\n\t字段n 字段n类型[comment 字段n注释]\n)[comment 表注释];\n```\n\n`[]`内为可选参数，最后一个不能加逗号\n\n#### 修改\n\n- 添加字段\n\n  ```sql\n  alter table 表名 add 字段名 类型(长度) [comment 注释] [约束];\n  ```\n\n- 修改字段\n\n  - 修改数据类型\n\n    ```sql\n    alter table 表名 modify 字段名 新数据类型(长度);\n    ```\n  - 修改字段名和字段类型\n\n    ```sql\n    alter table 表名 chage 旧字段名 新字段名 类型(长度) [comment 注释] [约束];\n    ```\n  \n- 删除字段\n\n  ```sql\n  alter table 表名 drop 字段名;\n  ```\n\n- 修改表名\n\n  ```sql\n  alter table 表名 rename to 新表名;\n  ```\n\n#### 删除\n\n- 删除表\n\n  ```sql\n  drop table [if exists] 表名;\n  ```\n\n- 删除指定表，并重新创建该表（相当于清数据，但是字段还在）\n\n  ```sql\n  truncate table 表名;\n  ```\n\n### 数据类型\n\n#### 数值类型\n\n| 类型         | 大小     | 有符号(SIGNED)范围                                    | 无符号(UNSIGNED)范围                                       | 描述               |\n| ------------ | -------- | ----------------------------------------------------- | ---------------------------------------------------------- | ------------------ |\n| TINYINT      | 1  byte  | (-128，127)                                           | (0，255)                                                   | 小整数值           |\n| SMALLINT     | 2  bytes | (-32768，32767)                                       | (0，65535)                                                 | 大整数值           |\n| MEDIUMINT    | 3  bytes | (-8388608，8388607)                                   | (0，16777215)                                              | 大整数值           |\n| INT或INTEGER | 4  bytes | (-2147483648，2147483647)                             | (0，4294967295)                                            | 大整数值           |\n| BIGINT       | 8  bytes | (-2^63，2^63-1)                                       | (0，2^64-1)                                                | 极大整数值         |\n| FLOAT        | 4  bytes | (-3.402823466 E+38，3.402823466351  E+38)             | 0 和 (1.175494351  E-38，3.402823466 E+38)                 | 单精度浮点数值     |\n| DOUBLE       | 8  bytes | (-1.7976931348623157 E+308，1.7976931348623157 E+308) | 0 和  (2.2250738585072014 E-308，1.7976931348623157 E+308) | 双精度浮点数值     |\n| DECIMAL      |          | 依赖于M(精度)和D(标度)的值                            | 依赖于M(精度)和D(标度)的值                                 | 小数值(精确定点数) |\n\n#### 字符串类型\n\n| 类型       | 大小                  | 描述                         |\n| ---------- | --------------------- | ---------------------------- |\n| CHAR       | 0-255 bytes           | 定长字符串                   |\n| VARCHAR    | 0-65535 bytes         | 变长字符串                   |\n| TINYBLOB   | 0-255 bytes           | 不超过255个字符的二进制数据  |\n| TINYTEXT   | 0-255 bytes           | 短文本字符串                 |\n| BLOB       | 0-65 535 bytes        | 二进制形式的长文本数据       |\n| TEXT       | 0-65 535 bytes        | 长文本数据                   |\n| MEDIUMBLOB | 0-16 777 215 bytes    | 二进制形式的中等长度文本数据 |\n| MEDIUMTEXT | 0-16 777 215 bytes    | 中等长度文本数据             |\n| LONGBLOB   | 0-4 294 967 295 bytes | 二进制形式的极大文本数据     |\n| LONGTEXT   | 0-4 294 967 295 bytes | 极大文本数据                 |\n\n#### 日期时间类型\n\n| 类型      | 大小 | 范围                                       | 格式                | 描述                     |\n| --------- | ---- | ------------------------------------------ | ------------------- | ------------------------ |\n| DATE      | 3    | 1000-01-01 至  9999-12-31                  | YYYY-MM-DD          | 日期值                   |\n| TIME      | 3    | -838:59:59 至  838:59:59                   | HH:MM:SS            | 时间值或持续时间         |\n| YEAR      | 1    | 1901 至 2155                               | YYYY                | 年份值                   |\n| DATETIME  | 8    | 1000-01-01 00:00:00 至 9999-12-31 23:59:59 | YYYY-MM-DD HH:MM:SS | 混合日期和时间值         |\n| TIMESTAMP | 4    | 1970-01-01 00:00:01 至 2038-01-19 03:14:07 | YYYY-MM-DD HH:MM:SS | 混合日期和时间值，时间戳 |\n\n## DML-操作\n\n### 添加数据\n\n- 给指定字段添加数据\n\n  ```sql\n  insert into 表名 (字段名1,字段名2,...) values (值1,值2,...);\n  ```\n\n- 给全部字段添加数据\n\n  ```sql\n  insert into 表名 values (值1,值2,...);\n  ```\n\n  \n\n- 批量添加数据\n\n  ```sql\n  insert into 表名 (字段名1,字段名2,...) values (值1,值2,...),(值1,值2,...),(值1,值2,...);\n  insert into 表名 values (值1,值2,...),(值1,值2,...),(值1,值2,...);\n  ```\n\n> - 字符串和日期型数据应该在引号内\n> - 字段顺序与值的顺序一一对应\n> - 插入数据大小，应在范围内\n\n### 修改数据\n\n```sql\nupdate 表名 set 字段名1=值1, 字段名2=值2, ... [where 条件];\n```\n\n> 修改语句的条件可以有，可以无，若无，则修改整张表**所有数据**\n\n### 删除数据\n\n```sql\ndelete from 表名 [where 条件];\n```\n\n> - delete语句的条件可以有，可以无，若无，则删除整张表所有数据\n>\n> - delete语句不能删除某一个字段的值（可以使用update）\n\n## DQL-查询\n\n### 基本查询\n\n- 查询多个字段\n\n  ```sql\n  select 字段1,字段2,... from 表名;\n  select * from 表名;\n  ```\n\n- 设置别名\n\n  ```sql\n  select 字段1 [as 别名1], 字段2 [as 别名2] ... from 表名;\n  ```\n\n  > as可省略\n\n- 去除重复记录\n\n  ```sql\n  select distinct 字段列表 from 表名;\n  ```\n\n### 条件查询\n\n- 语法\n\n  ```sql\n  select 字段列表 from 表名 where 条件列表;\n  ```\n\n- 条件\n\n    | 比较运算符      | 功能                                       |\n    | --------------- | ------------------------------------------ |\n    | >               | 大于                                       |\n    | >=              | 大于等于                                   |\n    | <               | 小于                                       |\n    | <=              | 小于等于                                   |\n    | =               | 等于                                       |\n    | <> 或 !=        | 不等于                                     |\n    | BETWEEN … AND … | 在某个范围内（含最小、最大值）             |\n    | IN(…)           | 在in之后的列表中的值，多选一               |\n    | LIKE 占位符     | 模糊匹配（_匹配单个字符，%匹配任意个字符） |\n    | IS NULL         | 是NULL                                     |\n    \n    | 逻辑运算符 | 功能                         |\n    | ---------- | ---------------------------- |\n    | AND 或 &&  | 并且（多个条件同时成立）     |\n    | OR 或 \\|\\| | 或者（多个条件任意一个成立） |\n    | NOT 或 !   | 非，不是                     |\n\n> ### 聚合函数\n>\n> 1. 介绍\n>\n>    将一列作为一个整体，进行纵向计算\n>\n> 2. 常见聚合函数\n>\n>    | 函数  | 功能     |\n>    | ----- | -------- |\n>    | count | 统计数量 |\n>    | max   | 最大值   |\n>    | min   | 最小值   |\n>    | avg   | 平均值   |\n>    | sum   | 求和     |\n>\n> 3. 语法\n>\n>     ```sql\n>     select 聚合函数(字段列表) from 表名;\n>     ```\n>\n> > 所有聚合函数不计算null\n\n### 分组查询\n\n- 语法\n\n  ```sql\n  select 字段列表 from 表名 [where 条件] group by 分组字段名 [having 分组过滤后条件];\n  ```\n\n  > where和having区别\n  >\n  > - 执行时机不同：where是分组之前进行过滤，不满足where条件不参与分组，而having是对分组之后的结果进行过滤\n  > - 判断条件不同：where不能对聚合函数进行判断，而having可以\n\n> - 执行顺序：where > 聚合函数 > having\n> - 分组之后，查询的字段一般为聚合函数和分组字段，查询其他字段无任何意义\n\n### 排序查询\n\n- 语法；\n\n  ```sql\n  select 字段列表 from 表名 order by 字段1 排序方式1, 字段2 排序方式2;\n  ```\n\n- 排序方式\n\n  - ASC：升序（默认值，可省略 ）\n  - DESC：降序\n\n  > 若是多字段排序，当第一个字段相同时，才会根据第二个字段进行排序\n\n### 分页查询\n\n- 语法\n\n  ```sql\n  select 字段列表 from 表名 limit 起始索引，查询记录数;\n  ```\n\n  > - 起始索引从**0**开始，起始索引=(查询页码-1)*每页显示记录数\n  >\n  > - 分页查询是数据库的方言，不同的数据库有不同的实现，MySQL中是limit\n  >\n  > - 如果查询的是第一页数据，起始索引可以省略，直接简写为limit 10\n\n### 编写顺序、执行顺序\n\n- 编写顺序\n\n  ```sql\n  select\n  \t字段列表\n  from\n  \t表名列表\n  where\n  \t条件列表\n  group by\n  \t分组字段列表\n  having\n  \t分组后条件列表\n  order by\n  \t排序字段列表\n  limit\n  \t分页参数\n  ```\n\n- 执行顺序\n\n  ```sql\n  from\n  \t表名列表\n  where\n  \t条件列表\n  group by\n  \t分组字段列表\n  having\n  \t分组后条件列表\n  select\n  \t字段列表\n  order by\n  \t排序字段列表\n  limit\n  \t分页参数\n  ```\n\n## DCL-控制\n\n### 管理用户\n\n1. 查询用户\n\n   ```sql\n   use mysql;\n   select * from user;\n   ```\n\n2. 创建用户\n\n   ```sql\n   create user ‘用户名’@‘主机名’ identified by ‘密码’;\n   ```\n\n3. 修改用户密码\n\n   ```sql\n   alter user ‘用户名’@‘主机名’ identified with mysql_native_password by ‘新密码’;\n   ```\n\n4. 删除用户\n\n   ```sql\n   drop user ’用户名’@‘主机名’;\n   ```\n\n> - 主机名可以用%通配\n> - 这类SQL开发人员操作的比较少，主要是数据库管理员使用\n\n### 权限控制\n\n| 权限                | 说明               |\n| ------------------- | ------------------ |\n| ALL, ALL PRIVILEGES | 所有权限           |\n| SELECT              | 查询数据           |\n| INSERT              | 插入数据           |\n| UPDATE              | 修改数据           |\n| DELETE              | 删除数据           |\n| ALTER               | 修改表             |\n| DROP                | 删除数据库/表/视图 |\n| CREATE              | 创建数据库/表      |\n\n[MySQL :: MySQL 8.0 Reference Manual :: 8.2.2 Privileges Provided by MySQL](https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html)\n\n1. 查询权限\n\n   ```sql\n   show grants for ‘用户名’@‘主机名’;\n   ```\n\n2. 授予权限\n\n   ```sql\n   grant 权限列表 on 数据库名.表名 to ‘用户名’@‘主机名’;\n   grant 权限列表 on *.* to ‘用户名’@‘主机名’;    # 所有数据库的所有表\n   ```\n\n3. 撤销权限\n\n   ```sql\n   revoke 权限列表 on 数据库名.表名 from ‘用户名’@‘主机名’;\n   ```\n\n> - 多个权限之间，使用逗号分隔\n> - 授权时，数据库名和表名可以使用`*`进行通配，代表所有\n\n## 函数\n\n ### 字符串函数\n\n| 函数                             | 功能                                                         |\n| -------------------------------- | ------------------------------------------------------------ |\n| CONCAT(s1, s2, …, sn)            | 字符串拼接，将s1, s2, …, sn拼接成一个字符串                  |\n| LOWER(str)                       | 将字符串全部转为小写                                         |\n| UPPER(str)                       | 将字符串全部转为大写                                         |\n| LPAD(str, n, pad)                | 左填充，用字符串pad对str的左边进行填充，达到n个字符串长度    |\n| RPAD(str, n, pad)                | 右填充，用字符串pad对str的右边进行填充，达到n个字符串长度    |\n| TRIM(str)                        | 去掉字符串头部和尾部的空格                                   |\n| SUBSTRING(str, start, len)       | 返回从字符串str从start位置起的len个长度的字符串，**索引从1开始** |\n| REPLACE(column, source, replace) | 替换字符串                                                   |\n\n```sql\nselect 函数(参数);\n```\n\n### 数值函数\n\n| 函数        | 功能                             |\n| ----------- | -------------------------------- |\n| CEIL(x)     | 向上取整                         |\n| FLOOR(x)    | 向下取整                         |\n| MOD(x, y)   | 返回x/y的模                      |\n| RAND()      | 返回0~1内的随机数                |\n| ROUND(x, y) | 求参数x的四舍五入值，保留y位小数 |\n\n### 日期函数\n\n| 函数                               | 功能                                              |\n| ---------------------------------- | ------------------------------------------------- |\n| CURDATE()                          | 返回当前日期                                      |\n| CURTIME()                          | 返回当前时间                                      |\n| NOW()                              | 返回当前日期和时间                                |\n| YEAR(date)                         | 获取指定date的年份                                |\n| MONTH(date)                        | 获取指定date的月份                                |\n| DAY(date)                          | 获取指定date的日期                                |\n| DATE_ADD(date, INTERVAL expr type) | 返回一个日期/时间值加上一个时间间隔expr后的时间值 |\n| DATEDIFF(date1, date2)             | 返回起始时间date1和结束时间date2之间的天数        |\n\n### 流程函数\n\n| 函数                                                         | 功能                                                    |\n| ------------------------------------------------------------ | ------------------------------------------------------- |\n| IF(value, t, f)                                              | 如果value为true，则返回t，否则返回f                     |\n| IFNULL(value1, value2)                                       | 如果value1不为空，返回value1，否则返回value2            |\n| CASE WHEN [ val1 ] THEN [ res1 ] … ELSE [ default ] END      | 如果val1为true，返回res1，… 否则返回default默认值       |\n| CASE [ expr ] WHEN [ val1 ] THEN [ res1 ] … ELSE [ default ] END | 如果expr的值等于val1，返回res1，… 否则返回default默认值 |\n\n ## 约束\n\n### 概述\n\n1. 概念：约束是作用于表中字段上的规则，用于限制存储在表中的数据\n2. 目的：保证数据库中数据的正确、有效性和完整性\n3. 分类：\n\n    | 约束                     | 描述                                                     | 关键字      |\n    | ------------------------ | -------------------------------------------------------- | ----------- |\n    | 非空约束                 | 限制该字段的数据不能为null                               | NOT NULL    |\n    | 唯一约束                 | 保证该字段的所有数据都是唯一、不重复的                   | UNIQUE      |\n    | 主键约束                 | 主键是一行数据的唯一标识，要求非空且唯一                 | PRIMARY KEY |\n    | 默认约束                 | 保存数据时，如果未指定该字段的值，则采用默认值           | DEFAULT     |\n    | 检查约束（8.0.16版本后） | 保证字段值满足某一个条件                                 | CHECK       |\n    | 外键约束                 | 用来让两张图的数据之间建立连接，保证数据的一致性和完整性 | FOREIGN KEY |\n\n    > 约束是作用于表中字段上的，可以在建表、修改表的时候添加约束\n\n    **常用约束**\n\n    | 约束条件 | 关键字         |\n    | -------- | -------------- |\n    | 主键     | PRIMARY KEY    |\n    | 自动增长 | AUTO_INCREMENT |\n    | 不为空   | NOT NULL       |\n    | 唯一     | UNIQUE         |\n    | 逻辑条件 | CHECK          |\n    | 默认值   | DEFAULT        |\n\n### 外键约束\n\n1. 概念：外键用来让两张表的数据之间建立连接，从而保证数据的一致性和完整性\n\n2. 语法\n\n   - 添加外键\n\n     ```sql\n     -- 建表时创建约束\n     create table 表名(\n     \t字段名 数据类型,\n         ...\n         [constraint] [外键名称] foreign key (外键字段名) references 主表(主表列名)\n     );\n     \n     -- 已经创建好表之后建立约束\n     alter table 表名 add constraint 外键名称 foreign key (外键字段名) references 主表(主表列名);\n     \n     -- 例子\n     alter table emp add constraint fk_emp_dept_id foreign key (dept_id) references dept(id);\n     ```\n     \n   - 删除外键\n   \n     ```sql\n     alter table 表名 drop foreign key 外键名称;\n     ```\n   \n     \n\n3. 删除/更新行为\n\n   | 行为        | 说明                                                         |\n   | ----------- | ------------------------------------------------------------ |\n   | NO ACTION   | 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有则不允许删除/更新（与RESTRICT一致） |\n   | RESTRICT    | 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有则不允许删除/更新（与NO ACTION一致） |\n   | CASCADE     | 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有则也删除/更新外键在子表中的记录 |\n   | SET NULL    | 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有则设置子表中该外键值为null（要求该外键允许为null） |\n   | SET DEFAULT | 父表有变更时，子表将外键设为一个默认值（Innodb不支持）       |\n   ```sql\n   alter table 表名 add constraint 外键名称 foreign key (外键字段名) references 主表(主表列名) on update 在更新时的行为 on delete 在删除时的行为;\n   ```\n\n## 多表查询\n\n### 多表关系\n\n- 概述\n\n  项目开发中，在进行数据库表结构设计时，会根据业务需求及业务模块之间的关系，分析并设计表结构，由于业务之间相互关联，所以各个表结构之间也存在着各种联系，基本上分为三种：\n\n  - 一对多（多对一）\n\n    案例：部门与员工\n    关系：一个部门对应多个员工，一个员工对应一个部门\n    实现：在多的一方建立外键，指向一的一方的主键\n\n  - 多对多\n\n    案例：学生与课程\n    关系：一个学生可以选多门课程，一门课程也可以供多个学生选修\n    实现：建立第三张中间表，中间表至少包含两个外键，分别关联两方主键\n\n  - 一对一\n\n    案例：用户与用户详情\n    关系：一对一关系，多用于单表拆分，将一张表的基础字段放在一张表中，其他详情字段放在另一张表中，以提升操作效率\n    实现：在任意一方加入外键，关联另外一方的主键，并且设置外键为唯一的（UNIQUE）\n\n### 多表查询概述\n\n- 概述： 指从多张表中查询数据\n- 笛卡尔积：笛卡尔乘积是指在数学中，两个集合的所有组合情况（多表查询时，需要消除无效的笛卡尔积）\n\n- 多表查询分类\n\n  - 连接查询\n\n    - 内连接：相当于查询A、B交集部分数据\n\n    - 外连接：\n      - 左外连接：查询左表所有数据，以及两张表交集部分数据\n      - 右外连接：查询右表所有数据，以及两张表交集部分数据\n    - 自连接：当前表与自身的连接查询，自连接必须使用表别名\n\n  - 子查询\n\n### 连接查询-内连接\n\n- 内连接查询语法\n\n  - 隐式内连接\n\n    ```sql\n    select 字段列表 from 表1, 表2 where 条件...;\n    ```\n\n  - 显式内连接\n\n    ```sql\n    select 字段列表 from 表1 [inner] join 表2 on 连接条件...;\n    ```\n\n### 连接查询-外连接\n\n#### 左外连接\n\n```sql\nselect 字段列表 from 表1 left [outer] join 表2 on 条件...;\n```\n\n#### 右外连接\n\n```sql\nselect 字段列表 from 表1  [outer] join 表2 on 条件...;\n```\n\n### 连接查询-自连接\n\n```sql\nselect 字段列表 from 表A 别名A join 表A 别名B on 条件...;  -- 也可以用内连接，外连接\n```\n\n### 联合查询-union, union all\n\n对于`union`查询，就是把多次查询的结果合并起来，形成一个新的查询结果集。\n\n```sql\nselect 字段列表 from 表A ...\nunion [all]\nselect 字段列表 from 表B ...;   -- 没有all的话可以去重\n```\n\n> - 对于联合查询的多张表的列数必须保持一致，字段类型也要保持一致\n> - `union all`会将全部的数据直接合并在一起，`union`会对合并之后的数据去重\n> - 联合查询比使用or效率高，不会使索引失效\n\n### 子查询\n\n- 概念： SQL语句中嵌套`select`语句，称为**嵌套查询**，又称**子查询**。\n\n  ```sql\n  select * from t1 where column1 = (select column1 from t2);\n  ```\n\n> 子查询的外部语句可以是`insert`/`update`/`delete`/`select`的任何一个\n\n- 根据子查询结果不同，分为：\n  - 标量子查询（子查询结果为单个值）\n  - 列子查询（子查询结果为一列）\n  - 行子查询（子查询结果为一行）\n  - 表子查询（子查询结果为多行多列）\n- 根据子查询位置，分为：\n  - `where`之后\n  - `from`之后\n  - `select`之后\n\n#### 标量子查询\n\n- 子查询结果返回的结果是单个值（数字、字符串、日期等），最简单的形式\n\n- 常用操作符： `= <> > >= < <=`\n\n#### 列子查询\n\n- 子查询返回的结果是一列（可以是多行）\n\n- 常用操作符：`in`,`not in`,`any`,`some`,`all`\n\n  | 操作符 | 描述                                   |\n  | ------ | -------------------------------------- |\n  | IN     | 在指定的集合范围内，多选一             |\n  | NOT IN | 不在指定的集合范围内                   |\n  | ANY    | 子查询返回列表中，有任意一个满足即可   |\n  | SOME   | 与ANY等同，使用SOME的地方都可以使用ANY |\n  | ALL    | 子查询返回列表的所有值都必须满足       |\n\n#### 行子查询\n\n- 子查询返回的结果是一行（可以是多列）\n- 常用操作符：`=`,`<>`,`in`,`not in` \n\n#### 表子查询\n\n- 子查询返回的的结果是多行多列\n- 常用操作符：`in`\n\n## 事务\n\n### 简介\n\n事务是一组操作的集合，它是一个不可分割的工作单位，事务会把所有的操作作为一个整体一起向系统提交或撤销操作\n请求，即这些操作**要么同时成功，要么同时失败**。\n\n### 事务操作\n\n- 查看/设置事务提交方式\n\n  ```sql\n  select @@autocommit;   -- 查看事务是不是自动提交，0是手动，1是自动\n  set @@autocommit = 0;  -- 设置为手动\n  ```\n\n- 提交事务\n\n  ```sql\n  commit;\n  ```\n\n- 回滚事务\n\n  ```sql\n  rollback;\n  ```\n\n- 开启事务\n\n  ```sql\n  start transaction 或 begin\n  ```\n\n  \n\n### 事务四大特性\n\n- 原子性（Atomicity）：事务是不可分割的最小操作单元，要么全部成功，要么全部失败。\n- 一致性（Consistency）：事务完成时，必须使所有的数据都保持一致状态。\n- 隔离性（Isolation）：数据库系统提供的隔离机制，保证事务在不受外部并发操作影响的独立环境下运行。\n- 持久性（Durability）：事务一旦提交或回滚，它对数据库中的数据的改变就是永久的。\n\n### 并发事务问题\n\n| 问题       | 描述                                                         |\n| ---------- | ------------------------------------------------------------ |\n| 脏读       | 一个事务读到另一个事务还没提交的数据                         |\n| 不可重复读 | 一个事务先后读取同一条记录，但两次读取的数据不同             |\n| 幻读       | 一个事务按照条件查询数据时，没有对应的数据行，但是再插入数据时，又发现这行数据已经存在 |\n\n### 事务隔离级别\n\n| 隔离级别                   | 脏读 | 不可重复读 | 幻读 |\n| -------------------------- | ---- | ---------- | ---- |\n| Read uncommitted           | √    | √          | √    |\n| Read committed             | ×    | √          | √    |\n| Repeatable Read(MySQL默认) | ×    | ×          | √    |\n| Serializable               | ×    | ×          | ×    |\n\n- √表示在当前隔离级别下该问题会出现\n- Serializable 性能最低；Read uncommitted 性能最高，数据安全性最差\n\n```sql\n-- 查看事务隔离级别\nselect @@transaction_isolation;\n-- 设置事务隔离级别\nset [session | global] transaction isolation level {read uncommitted | read committed | repeatable | serializable}    -- session | global非别是会话级别（当前客户端）、全部客户端\n```\n\n> 隔离级别越高，数据越安全，但是性能越低\n\n# 进阶篇\n\n## 存储引擎\n\n### MySQL体系结构\n\n![MySQL体系结构](/content-assets/database-learn/MySQL体系结构.png)\n\n- 连接层\n\n  最上层是一些客户端和链接服务，主要完成一些类似于连接处理、授权认证、及相关的安全方案。服务器也会为安全接入的每个客户端验证它所具有的操作权限。\n\n- 服务层\n\n  第二层架构主要完成大多数的核心服务功能，如SQL接口，并完成缓存的查询，SQL的分析和优化，部分内置函数的执行。所有跨存储引擎的功能也在这一层实现，如过程、函数等。\n\n- 引擎层\n\n  存储引擎真正的负责了MySQL中数据的存储和提取，服务器通过API和存储引擎进行通信。不同的存储引擎具有不同的功能，这样我们可以根据自己的需要，来选取合适的存储引擎。\n\n- 存储层\n\n  主要是将数据存储在文件系统之上，并完成与存储引擎的交互。\n\n### 存储引擎简介\n\n1. 创建表时，指定存储引擎\n\n   ```sql\n   create table 表名(\n   \t...\n   )engine = innodb\n   ```\n\n2. 查看当前数据库支持的存储引擎\n\n   ```sql\n   show engine;\n   ```\n\n### 存储引擎特点\n\n#### InnoDB\n\n- 介绍\n\n  InnODB是一种兼顾高可靠性和高性能的通用存储引擎，在MySQL5.5之后，InnODB是默认的MySQL存储引擎。\n\n- 特点\n\n  - DML操作遵循ACID模型，支持**事务**；\n  - **行级锁**，提高并发访问性能;\n  - 支持**外键**FOREIGN KEY约束，保证数据的完整性和正确性；\n\n- 文件\n\n  xxx.ibd：xxx代表的是表名，innoDB引擎的每张表都会对应这样一个表空间文件，存储该表的表结构（frm、sdi）、数据和索引。\n  参数：innodb_file_per_table\n\n> - 查看MySQL变量\n>\n>   ```sql\n>   show variables like 'innodb_file_per_table'\n>   ```\n>\n> - 从idb文件提取表结构数据（在cmd运行）：\n>\n>   ```cmd\n>   ibd2sdi xxx.ibd\n>   ```\n\n- 逻辑存储结构\n\n  ![InnoDB逻辑存储结构](D:\\Desktop\\河海大学\\河海大学智泽实验室\\数据库学习\\笔记\\InnoDB逻辑存储结构.png)\n\n#### MyISAM\n\n- 介绍\n\n  MyISAM是MySQL早期的默认存储引擎。\n\n- 特点\n\n  - 不支持事务，不支持外键\n  - 支持表锁，不支持行锁\n  - 访问速度快\n\n- 文件\n\n  - xxx.sdi：存储表结构信息\n  - xxx.MYD:存储数据\n  - xxx.MYI: 存储索引\n\n#### Memory\n\n- 介绍\n\n  Memory引擎的表数据时存储在内存中的，由于受到硬件问题、或断电问题的影响，只能将这些表作为临时表或缓存使用。\n\n- 特点\n\n  - 内存存放\n  - hash索引（默认）\n\n- 文件\n\n  xxx.sdi:存储表结构信息\n\n#### 特点\n\n| 特点         | InnoDB              | MyISAM | Memory |\n| ------------ | ---------------- | ------ | ------ |\n| 存储限制     | 64TB                | 有     | 有     |\n| 事务安全     | **支持**            | -      | -      |\n| 锁机制       | **行锁**            | 表锁   | 表锁   |\n| B+tree索引   | 支持                | 支持   | 支持   |\n| Hash索引     | -                   | -      | 支持   |\n| 全文索引     | 支持（5.6版本之后） | 支持   | -      |\n| 空间使用     | 高                  | 低     | N/A    |\n| 内存使用     | 高                  | 低     | 中等   |\n| 批量插入速度 | 低                  | 高     | 高     |\n| 支持外键     | **支持**            | -      | -      |\n\n### 存储引擎选择\n\n在选择存储引擎时，应该根据应用系统的特点选择合适的存储引擎。对于复杂的应用系统，还可以根据实际情况选择多种存储引擎进行组合。\n\n- nnoDB：是Mysql的默认存储引擎，支持事务、外键。如果应用对事务的完整性有比较高的要求，在并发条件下要求数据的一致性，数据操作除了插入和查询之外，还包含很多的更新、删除操作，那么InnoDB存储引擎是比较合适的选择。\n- MyISAM：如果应用是以读操作和插入操作为主，只有很少的更新和删除操作，并且对事务的完整性、并发性要求不是很高，那么选择这个存储引擎是非常合适的。\n\n- MEMORY：将所有数据保存在内存中，访问速度快，通常用于临时表及缓存。MEMORY的缺陷就是对表的大小有限制，太大的表无法缓存在内存中，而且无法保障数据的安全性。\n\n## 索引\n\n### 索引概述\n\n#### 介绍\n\n索引（index）是帮助MySQL**高效获取数据**的**数据结构**（**有序**）。在数据之外，数据库系统还维护着满足特定查找算法的数据结构，这些数据结构以某种方式引用（指向）数据，这样就可以在这些数据结构上实现高级查找算法，这种数据结构就是索引。\n\n#### 优缺点\n\n| 优势                                                        | 劣势                                                         |\n| ----------------------------------------------------------- | ------------------------------------------------------------ |\n| 提高数据检索的效率，降低数据库的IO成本                      | 索引列也要占用空间                                           |\n| 通过索引列对数据进行排序，降低数据排序的成本，降低CPU的消耗 | 索引大大提高了查询效率，同时却也降低更新表的速度，如对标进行insert、update、delete时，效率降低 |\n\n### 索引结构\n\nMySQL的索引是在存储引擎层实现的，不同的存储引擎有不同的结构，主要包含以下几种：\n\n| 索引结构            | 描述                                                         |\n| ------------------- | ------------------------------------------------------------ |\n| B+Tree              | 最常见的索引类型，大部分引擎都支持B+树索引                   |\n| Hash                | 底层数据结构是用哈希表实现，只有精确匹配索引列的查询才有效，不支持范围查询 |\n| R-Tree(空间索引)    | 空间索引是 MyISAM 引擎的一个特殊索引类型，主要用于地理空间数据类型，通常使用较少 |\n| Full-Text(全文索引) | 是一种通过建立倒排索引，快速匹配文档的方式，类似于 Lucene, Solr, ES |\n\n|    索引    | InnoDB        | MyISAM | Memory |\n| :--------: | ------------- | ------ | ------ |\n| B+Tree索引 | 支持          | 支持   | 支持   |\n|  Hash索引  | 不支持        | 不支持 | 支持   |\n| R-Tree索引 | 不支持        | 支持   | 不支持 |\n| Full-text  | 5.6版本后支持 | 支持   | 不支持 |\n\n> 平常所说的索引，如果没有特别指明，都是指B+Tree结构组织的索引\n\n#### B-Tree（多路平衡查找树）\n\n> - 二叉树缺点：顺序插入时，会形成一个链表，查询性能大大降低。大数据量情况下，层级较深，检索速度慢。\n> - 红黑树缺点：大数据量情况下，层级较深，检索速度慢。\n\n[B-Tree 演示](https://www.cs.usfca.edu/~galles/visualization/BTree.html)\n\n![B-Tree结构](/content-assets/database-learn/B-Tree结构.png)\n\n#### B+Tree\n\n相对于B-Tree区别：\n\n- 所有数据都会出现在叶子结点\n- 叶子结点形成一个单向链表\n\n![B+Tree结构图](/content-assets/database-learn/B-Tree结构图.png)\n\nMySQL索引数据结构对经典的B+Tree进行了优化。在原B+Tree的基础上，增加一个指向相邻叶子节点的链表指针，就形成了带有顺序指针的B+Tree，提高区间访问的性能。\n\n![优化B+Tree结构图](/content-assets/database-learn/优化B-Tree结构图.png)\n\n> 为什么InnoDB存储引擎选择使用B+Tree索引结构？\n>\n> - 相对于二叉树，层级更少，搜索效率高\n> - 对于B-tree，无论是叶子节点还是非叶子节点，都会保存数据，这样导致一页中存储的键值减少，指针跟着减少，要同样保存大量数据，只能增加树的高度，导致性能降低\n> - 相对Hash索引，B+tree支持范围匹配及排序操作\n\n#### Hash\n\n哈希索引就是采用一定的hash算法，将键值换算成新的hash值，映射到对应的槽位上，然后存储在hash表中。\n\n- 特点\n  - Hash索引只能用于对等比较（=，in），不支持范围查询（between，>，<，...）\n  - 无法利用索引完成排序操作\n  - 查询效率比较高，通常只需要一次检索就可以了，效率通常要高于B+Tree索引\n\n- 存储引擎支持\n\n  在MySQL中，支持hash索引的是Memory引l擎，而InnoDB中具有自适应hash功能，hash索引是存储引擎根据B+Tree索引在指定条件下自动构建的。\n\n### 索引分类\n\n| 分类     | 含义                                                 | 特点                     | 关键字   |\n| -------- | ---------------------------------------------------- | ------------------------ | -------- |\n| 主键索引 | 针对于表中主键创建的索引                             | 默认自动创建，只能有一个 | PRIMARY  |\n| 唯一索引 | 避免同一个表中某数据列中的值重复                     | 可以有多个               | UNIQUE   |\n| 常规索引 | 快速定位特定数据                                     | 可以有多个               |          |\n| 全文索引 | 全文索引查找的是文本中的关键词，而不是比较索引中的值 | 可以有多个               | FULLTEXT |\n\n在InnoDB存储引擎中，根据索引的存储形式，又可以分为以下两种：\n\n| 分类                      | 含义                                                       | 特点                 |\n| ------------------------- | ---------------------------------------------------------- | -------------------- |\n| 聚集索引(Clustered Index) | 将数据存储与索引放一块，索引结构的叶子节点保存了行数据     | 必须有，而且只有一个 |\n| 二级索引(Secondary Index) | 将数据与索引分开存储，索引结构的叶子节点关联的是对应的主键 | 可以存在多个         |\n\n聚集索引选取规则：\n\n- 如果存在主键，主键索引就是聚集索引\n- 如果不存在主键，将使用第一个唯一（UNIQUE）索引作为聚集索引\n- 如果表没有主键，或没有合适的唯一索引，则InnoDB会自动生成一个rowid作为隐藏的聚集索引\n\n![索引分类1](/content-assets/database-learn/索引分类1.png)\n\n![索引分类2](/content-assets/database-learn/索引分类2.png)\n\n### 索引语法\n\n- 创建索引\n\n  ```sql\n  create [unique | fulltext] index index_name on table_name(index_col_name,...);\n  ```\n\n- 查看索引\n\n  ```sql\n  show index from table_name;\n  ```\n\n- 删除索引\n\n  ```sql\n  drop index index_name on table_name;\n  ```\n\n### SQL性能分析\n\n#### SQL执行频率\n\nMySQL客户端连接成功后，通过`show[session|global]status`命令可以提供服务器状态信息。通过如下指令，可以查看当前数据库的INSERT、UPDATE、DELETE、SELECT的访问频次：\n\n```sql\nshow [session|global] status\nshow global status like 'Com____';   -- 几个字符就几个下划线\n                                     -- 主要看Com_delete\n                                     --      Com_insert\n                                     --      Com_select\n                                     --      Com_update\n                                     -- 这几个字母个数都是一样的\n```\n\n#### 慢查询日志\n\n慢查询日志记录了所有执行时间超过指定参数（`long_query_time`，单位：秒，默认10秒）的所有SQL语句的日志。\n\nMySQL的慢查询日志默认没有开启，需要在MySQL的配置文件（`/etc/my.cnf`（我的在`/etc/mysql/my.cnf`）（windows是`.\\MySQL\\MySQL Server 8.0\\my.ini`）中配置如下信息：\n\n```sql\n# 查看是否开启\nshow variables like 'slow_query_log';\n\n-- 下面两个是在配置文件中修改的\n# 开启MySQL慢日志查询开关\nslow_query_log = 1;\n# 设置慢日志时间为2秒，SQL语句执行时间超过两秒，就会视为慢查询，记录慢查询日志\nlong_query_time = 2;\n```\n\n配置完毕后，通过以下指令重新启动MySQL服务器进行测试，查看慢日志文件中记录的信息`/var/lib/mysql/localhost-slow.log`（win 日志位置`.\\MySQL\\MySQL Installer for Windows\\Logs`）\n\n> 实际上（经过241服务器测试所得），具体问题具体分析\n>\n> ```bash\n> sudo vim /etc/mysql/my.cnf   # 进入\n> \n> # 加上下面几行\n> \t[mysqld]\n> \t# 慢查询日志\n> \tslow_query_log = 1\n> \tlong_query_time = 2\n> # 上面\n> ```\n\n#### profile详情\n\nshow profiles能够在做SQL优化时帮助我们了解时间都耗费到哪里去了。通过have_profiling参数，能够看到当前MySQL是否支持profile操作：\n\n```sql\nselect @@have_profiling;\n```\n\n默认profiling是关闭的，可通过set语句在session/global级别开启profiling：\n\n```sql\n-- 查看\nselect @@profiling;\n-- 开启\nset profiling = 1;\n```\n\n执行一系列的业务SQL操作，然后通过如下指令查看指令的执行耗时：\n\n```sql\n-- 查看每一条SQL语句的耗时基本情况\nshow profiles;\n\n-- 查看指定query_id的SQL语句各个阶段的耗时情况\nshow profile for query query_id;\n\n-- 查看指定query_id的SQL语句CPU的使用情况\nshow profile cpu for query query_id;\n```\n\n#### explain执行计划\n\n`explain`或者`desc`命令获取MySQL如何执行`select`语句的信息，包括在`select`语句执行过程中表如何连接和连接的顺序。\n\n```sql\n# 直接在select语句之前加上explain/desc\nexplain select 字段列表 from 表名 where 条件;\n```\n\nexplain执行计划各字段含义：\n\n- `id`\n\n  select查询的序列号，表示查询中执行select子句或者是操作表的顺序（id相同，执行顺序从上到下；id不同，值越大，越先执行）。\n\n- `select_type`\n\n  表示select类型，常见取值有\n\n  - `simple`：简单表，即不使用表连接或者子查询\n  - `primary`：主查询，即外层的查询\n  - `union`：union中的第二个或者后面的查询语句\n  - `subquery`：select/where之后包含了子查询\n\n  等\n\n- **`type`**\n\n  表示连接类型，性能由好到差的连接类型为`NULL`、`system`、`const`、`eq_ref`、`ref`、`range`、`index`、`all`。\n\n- **`possible_keys`**\n\n  显示可能应用在这张表上的索引，一个或多个。\n\n- **`key`**\n\n  实际使用的索引，如果为NULL，则没有使用索引。\n\n- **`key_len`**\n\n  表示索引中使用的字节数，该值为索引字段的最大可能长度，并非实际使用长度，在不损失精确性的前提下，长度越短越好。\n\n- `rows`\n\n  MySQL认为必须要执行查询的行数，在innodb引擎的表中，是一个估计值，可能并不总是准确的。\n\n- `filtered`\n\n  表示返回结果的行数占需读取行数的百分比，值越大越好。\n\n- **`extra`**\n\n  额外信息\n\n### 索引使用\n\n- 最左前缀法则\n\n  如果索引了多列（联合索引），要遵守最左前缀法则。最左前缀法则指的是查询从索引的最左列开始，并且不跳过索引中的列。\n  如果跳跃某一列，**索引将部分失效（后面的字段索引失效）**。\n\n  > 和写条件时写的顺序无关\n\n- 范围查询\n\n  联合索引中，出现范围查询(>,<)，**范围查询右侧的列索引失效**（用了的那一列不失效）\n\n- 索引列运算\n\n  不要在索引列上进行运算操作，索引将失效。\n\n- 字符串引号\n\n  字符串类型字段使用时，不加引号，**索引将失效**。\n\n- 模糊查询\n\n  如果仅仅是尾部模糊匹配，索引不会失效。如果是头部模糊匹配，索引失效。\n\n- `or`连接的条件\n\n  用`or`分开的条件，如果or两边的条件中任一方不存在索引，那么涉及的索引都不会被用到。\n\n- 数据分布影响\n\n  如果MySQL评估使用索引比全表查询还慢，则不使用索引。\n\n- SQL提示\n\n  SQL提示是优化数据库的一个重要手段，简单来说，是在SQL语句中加入一些人为的提示来达到优化操作的目的。\n\n  - `use index`（建议使用）\n\n    示例：\n\n    ```sql\n    explain select * from tb_user use index(idx_user_pro) where profession = '软件工程';\n    ```\n\n  - `ignore index`（忽略）\n\n    示例：\n\n    ```sql\n    explain select * from tb_user ignore index(idx_user_pro) where profession = '软件工程';\n    ```\n\n  - `force index`（强制使用）\n\n    示例：\n\n    ```sql\n    explain select * from tb_user force index(idx_user_pro) where profession = '软件工程';\n    ```\n\n- 覆盖索引\n\n  尽量使用覆盖索引（查询使用了索引，并且需要返回的列，在该索引中已经全部能够找到），减少`select *`\n\n  > 在extra列：\n  >\n  > `usingindex condition`：查找使用了索引，但是需要回表查询数据\n  > `usingwhere;using index`：查找使用了索引，但是需要的数据都在索引列中能找到，所以不需要回表查询数据\n\n- 前缀索引\n\n  当字段类型为字符串（varchar，text等）时，有时候需要索引很长的字符串，这会让索引变得很大，查询时，浪费大量的磁盘IO，影响查询效率。此时可以只将字符串的一部分前缀，建立索引，这样可以大大节约索引空间，从而提高索引效率。\n  - 语法\n    ```sql\n    -- 创建前缀索引\n    create index idx_xxxx on table_name(idx_col_name(n));    # n为前缀长度\n    ```\n\n  - 前缀长度\n  \n    可以根据索引的选择性来决定，而选择性是指不重复的索引值（基数）和数据表的记录总数的比值，索引选择性越高则查询效率越高，唯一索引的选择性是1，是最好的索引选择性，性能也是最好的。\n  \n    ```sql\n    select count(distinct email) / count(*) from tb_user;       # distinct是去重的      \n    select count(distinct substring(email, 1, 5)) / count(*) from tb_user; # 从第一个字符截5个\n    ```\n\n- 单列索引和联合索引\n\n  - 单列索引：即一个索引只包含单个列\n  - 联合索引：即一个索引包含了多个列\n\n  业务场景中，如果存在多个查询条件，考虑针对查询字段建立索引时，建议建立联合索引，而非单列索引。\n\n  > 多条件联合查询时，MySQL优化器会评估哪个字段的索引效率更高，会选择该索引完成本次查询。\n\n### 索引设计原则\n\n1. 针对于数据量较大，且查询比较频繁的表建立索引。\n\n2. 针对于常作为查询条件（`where`）、排序（`order by`)、分组（`group by`）操作的字段建立索引。\n\n3. 尽量选择区分度高的列作为索引，尽量建立唯一索引，区分度越高，使用索引的效率越高。\n\n4. 如果是字符串类型的字段，字段的长度较长，可以针对于字段的特点，建立前缀索引。\n\n5. 尽量使用联合索引，减少单列索引，查询时，联合索引很多时候可以覆盖索引，节省存储空间，避免回表，提高查询效率。\n\n6. 要控制索引的数量，索引并不是多多益善，索引越多，维护索引结构的代价也就越大，会影响增删改的效率。\n\n7. 如果索引列不能存储`NULL`值，请在创建表时使用`NOT NULL`约束它。当优化器知道每列是否包含`NULL`值时，它可以更好地确定哪个索引最有效地用于查询。\n\n## SQL优化\n\n### 插入数据\n\n- `insert`优化\n\n  - 批量插入\n\n    建议每次`insert`插入数据在500-1000条之间\n\n  - 手动提交事务\n\n    ```sql\n    -- 示例\n    start transaction;\n    ........\n    .多次提交.\n    ........\n    commit;\n    ```\n\n  - 主键顺序插入\n\n    顺序插入性能高于乱序输入\n\n- 大批量插入数据\n\n  如果一次性需要插入大批量数据集，使用`insert`语句插入性能较低，此时可以使用`MySQL`数据库提供的load指令进行插入。\n\n  ```sql\n  # 客户端连接服务器时，加上参数 --local-infile\n  mysql --local-infile -u root -p\n  # 设置全局参数local_infile为1，开启从本地加载文件导入数据的开关\n  set global local_infile = 1;\n  \t# # 这里可以通过如下指令查看是否开启\n  \t# select @@local_infile\n  # 执行load指令将准备好的数据，加载到表结构中\n  load data local infile '存放数据的文件路径' into table `tb_user` fields terminated by ',' lines terminated by '\\n';\n  ```\n\n### 主键优化\n\n- 数据组织方式\n\n在InnoDB存储引擎中，表数据都是根据主键顺序组织存放的，这种存储方式的表称为**索引组织表**（index organized table **IOT**）\n\n- 页分裂\n\n页可以为空，也可以填充一半，也可以填充100%，每个页包含了2-N行数据（如果一行数据过大，会行溢出），根据主键排列。\n\n- 页合并\n\n当删除一行记录时，实际上记录并没有被物理删除，只是记录被标记（flaged）为删除并且它的空间变得允许被其他记录声明使用。\n当页中删除的记录达到MERGE_THRESHOLD（默认为页的50%），InnODB会开始寻找最靠近的页（前或后）看看是否可以将两个页合并以优化空间使用。\n\n> MERGE_THRESHOLD：合并页的阈值，可以自己设置，在创建表或者创建索引时指定。\n\n- 主键设计原则\n\n- 满足业务需求情况下，尽量将低主键的长度。\n- 插入数据时，尽量选择顺序插入，选择使用AUTO_INCREMENT自增主键。\n- 尽量不使用UUID做主键或者是其他自然主键，如身份证号。\n- 业务操作时，避免对主键的修改。\n\n### `order by`优化\n\n> - Using filesort：通过表的索引或全表扫描，读取满足条件的数据行，然后在排序缓冲区sort buffer中完成排序操作，所有不是通过索引直接返回排序结果的排序都叫FileSort排序。\n> - Using index：通过有序索引顺序扫描直接返回有序数据，这种情况即为using index，不需要额外排序，操作效率高。\n\n- 根据排序字段建立合适的索引，多字段排序时，也遵循最左前缀法则。\n- 尽量使用覆盖索引。\n- 多字段排序，一个升序一个降序，此时需要注意联合索引在创建时的规则（ASC/DESC）。\n- 如果不可避免的出现filesort，大数据量排序时，可以适当增大排序缓冲区大小sort_buffer_size(默认256k)。\n  \n\n### `group by`优化\n\n- 在分组操作时，可以通过索引提高效率。\n- 分组操作时，索引的使用也是满足最左前缀法则。\n\n### `limit`优化\n\n优化思路：一般分页查询时，通过创建覆盖索引能够比较好地提高性能，可以通过覆盖索引加子查询形式进行优化。\n\n示例：\n\n```sql\n-- 优化前\nselect * from tb_sku limit 2000000, 10;\n-- 优化后\nselect t.* from tb_sku as t, (select id from tb_sku order by id limit 2000000, 10) as a where t.id = a.id;\n-- 下面的语句是错误的，因为 MySQL 不支持 in 里面使用 limit\n-- select * from tb_sku where id in (select id from tb_sku order by id limit 2000000, 10);\n```\n\n### `count`优化\n\n> - MylSAM引擎把一个表的总行数存在了磁盘上，因此执行`count(*)`的时候会直接返回这个数，效率很高；\n> - InnoDB引擎就麻烦了，它执行`count(*)`的时候，需要把数据一行一行地从引擎里面读出来，然后累积计数。\n\n优化思路：自己计数\n\n`count`几种用法\n\n- count()是一个聚合函数，对于返回的结果集，一行一行地判断，如果count函数的参数不是NULL，累计值就加1，否则不加，最后返回累计值。\n\n- 用法：`count(*)`、`count(主键)`、`count(字段)`、`count(1)`\n\n  - `count(主键)`\n\n    InnoDB引擎会遍历整张表，把每一行的主键id值都取出来，返回给服务层。服务层拿到主键后，直接按行进行累加（主键不可能为null)。\n\n  - `count(字段)`\n\n    - 没有not null约束：InnoDB引擎会遍历整张表把每一行的字段值都取出来，返回给服务层，服务层判断是否为null，不为null，计数累加。\n    - 有not null约束：InnoDB引擎会遍历整张表把每一行的字段值都取出来，返回给服务层，直接按行进行累加。\n\n  - `count(1)`\n\n    InnoDB引擎遍历整张表，但不取值。服务层对于返回的每一行，放一个数字“1”进去，直接按行进行累加。\n\n  - `count(*)`\n\n    InnoDB引擎并不会把全部字段取出来，而是专门做了优化，不取值，服务层直接按行进行累加。\n\n  > 按照效率排序：\n  >\n  > `count(字段)`<`count(主键id)`<`count(1)`≈`count(*)`，所以尽量使用`count(*)`\n\n### `update`优化\n\nInnoDB的行锁是针对索引加的锁，不是针对记录加的锁，并且该索引不能失效，否则会从行锁升级为表锁。\n\n尽量根据主键/索引字段进行数据更新。\n\n## 视图/存储过程/触发器\n\n### 视图\n\n#### 介绍\n\n视图（View）是一种虚拟存在的表。视图中的数据并不在数据库中实际存在，行和列数据来自定义视图的查询中使用的表，并且是在使用视图时动态生成的。\n\n通俗的讲，视图只保存了查询的SQL逻辑，不保存查询结果。所以我们在创建视图的时候，主要的工作就落在创建这条SQL查询语句上。\n\n#### 创建\n\n```sql\ncreate [or replace] view 视图名称[(列表名称)] as select语句 [with [cascaded | local] check option];\n-- or replace            如果该名称视图已经存在，则替换，如果不存在，则创建\n-- [(列表名称)]           显式指定视图中列的名称，若需指定，则和后面select语句的的列一一对应\n-- with check option     强制要求：通过该视图插入或更新的数据，必须符合该视图的where语句条件\n    --                   只在通过该视图insert/update时起作用\n    -- cascaded          当通过视图更新数据时，数据库不仅会检查当前视图的条件，还会递归检查所有底层视图的条件，无论底层视图是否定义了 check option\n    -- local             当通过视图更新数据时，数据库只检查当前视图的条件。对于底层视图，只有在底层视图显式定义了 check option 时才检查，否则忽略底层视图的规则。\n```\n\n#### 查询\n\n```sql\n-- 查看创建视图语句\nshow create view 视图名称;\n-- 查看视图数据\nselect * from 视图名称......;\n```\n\n#### 修改\n\n```sql\n-- 方式一\ncreate or replace view 视图名称[(列表名称)] as select语句 [with [cascaded | local] check option];         -- 不同于创建语句的是or replace不可省略\n-- 方式二\nalter view 视图名称[(列名列表)] as select语句 [with [cascaded | local] check option];\n```\n\n#### 删除\n\n```sql\ndrop view [if exists] 视图名称 [, 视图名称] ...;\n```\n\n#### 检查选项\n\n当使用`with check option`子句创建视图时，MySQL会通过视图检查正在更改的每个行，例如插入，更新，删除，以使其符合视图的定义。MySQL允许基于另一个视图创建视图，它还会检查依赖视图中的规则以保持一致性。为了确定检查的范围，mysql提供了两个选项：`cascaded`和 `local`，默认值为`cascaded`。\n\n#### 视图更新\n\n要使视图可更新，视图中的行与基础表中的行之间必须存在一对一的关系。如果视图包含以下任何一项，则该视图**不可更新**：\n\n- 聚合函数或窗口函数（`sum()`、`min()`、`max()`、`count()`等）\n- `distinct`\n- `group by`\n- `having`\n- `union` 或者 `union all`\n\n#### 视图的优点\n\n- 简单\n\n  视图不仅可以简化用户对数据的理解，也可以简化他们的操作。那些被经常使用的查询可以被定义为视图，从而使得用户不必为以后的操作每次指定全部的条件。\n\n- 安全\n\n  数据库可以授权，但不能授权到数据库特定行和特定的列上。通过视图用户只能查询和修改他们所能见到的数据\n\n- 数据独立\n\n  视图可帮助用户屏蔽真实表结构变化带来的影响\n\n### 存储过程\n\n#### 介绍\n\n存储过程是事先经过编译并存储在数据库中的一段SQL语句的集合，调用存储过程可以简化应用开发人员的很多工作，减少数据在数据库和应用服务器之间的传输，对于提高数据处理的效率是有好处的。\n存储过程思想上很简单，就是数据库SQL语言层面的代码封装与重用。\n\n#### 特点\n\n- 封装，复用\n- 可以接收参数，也可以返回数据\n- 减少网络交互，效率提升\n\n#### 创建\n\n```sql\ncreate procedure 存储过程名称([参数列表])\nbegin\n\t-- SQL语句\nend;\n\n-- 注意：在命令行中，执行创建存储过程SQL时，需要通过关键字 delimiter 指定SQL语句的结束符。\n-- 例如：\n    delimiter $$                   # 以 $$ 作为结束符\n    -- 然后\n    create procedure 存储过程名称([参数列表])\n    begin\n        -- SQL语句\n    end$$\n    -- 用完可以改回去\n    delimiter ;                    # 以 ; 作为结束符\n```\n\n#### 调用\n\n```sql\ncall 名称([参数]);\n```\n\n#### 查看\n\n```sql\n-- 查询指定数据库的存储过程及状态信息\nselect * from information_schema.routines where routine_schema = 'xxx';\n-- 查询某个存储过程的定义\nshow create procedure 存储过程名称;\n```\n\n#### 删除\n\n```sql\ndrop procedure [if exists] 存储过程名称;\n```\n\n#### 变量\n\n##### 系统变量\n\n**系统变量**是MySQL服务器提供，不是用户定义的，属于服务器层面。分为全局变量（global）、会话变量（session）\n\n- 查看系统变量\n\n  ```sql\n  -- 查看所有系统变量\n  show [session | global] variables;        # []内省略时默认session\n  -- 可以通过like模糊匹配方式查找变量\n  show [session | global] variables like '...';\n  -- 查看指定变量的值\n  select @@[session. | global.]系统变量名;    # 不省略时记得加'.'\n  ```\n\n- 设置系统变量\n\n  ```sql\n  set [session | global] 系统变量名 = 值;\n  set @@[session. | global.]系统变量名 = 值;     # 不省略时记得加'.'\n  ```\n\n> 如果没有指定`session/global`，默认是`session`会话变量\n>\n> MySQL服务器重新启动之后，所设置的全局参数会失效，要想不失效，可以在`/etc/my.cnf`中配置\n\n##### 用户自定义变量\n\n**用户自定义变量**是用户根据需要自己定义的变量，用户变量不用提前声明，在用的时候直接“@变量名”使用即可，其作用于为当前连接。\n\n- 赋值\n\n  ```sql\n  set @var_name = expr [,@var_name = expr]...;\n  set @var_name := expr [,@var_name := expr]...;\n  \n  select @var_name := expr [,@var_name := expr]...;\n  select 字段名 into @var_name from 表名;\n  ```\n\n- 使用\n\n  ```sql\n  select @var_name;\n  ```\n\n> 用户定义变量无序对其进行声明或初始化，只不过获取到的值为`NULL`\n\n##### 局部变量\n\n**局部变量**是根据需要定义在局部生效的变量，访问之前，需要`declare`声明。可用作存储过程内的局部变量和输入参数，局部变量的范围是在其内声明的`begin...end`块。\n\n- 声明\n\n  ```sql\n  declare 变量名 变量类型 [default...];\n  ```\n\n  变量类型就是数据库字段类型：INT、BIGINT、CHAR、VARCHAR、DATE、TIME等。\n\n- 赋值\n\n  ```sql\n  set 变量名 = 值;\n  set 变量名 := 值;\n  select 字段名 into 变量名 from 表名...;\n  ```\n\n#### if判断\n\n语法：\n\n```sql\nif 条件1 then\n\t...\nelseif 条件2 then           -- 可选\n\t...\nelse                       -- 可选\n\t...\nend if;\n```\n\n#### 参数\n\n| 类型  | 含义                                         | 备注 |\n| ----- | -------------------------------------------- | ---- |\n| IN    | 该类参数作为输入，也就是需要调用时传入值     | 默认 |\n| OUT   | 该类参数作为输出，也就是该参数可以作为返回值 |      |\n| INOUT | 既可以作为输入参数，也可以作为输出参数****   |      |\n\n用法：\n\n```sql\ncreate procedure 存储过程名称([in / out / inout 参数名 参数类型])\nbegin\n\t-- SQL语句\nend;\n```\n\n#### case\n\n语法：\n\n```sql\n-- 语法一：\ncase case_value\n\twhen when_value1 then statement_list1\n\t[when when_value2] then statement_list2\n\t...\n\t[else statement_list]\nend case;\n-- 语法二：\ncase\n\twhen search_condition1 then statement_list1\n\t[when search_condition2] then statement_list2\n\t...\n\t[else statement_list]\nend case;\n```\n\n#### 循环\n\n##### while\n\nwhile循环是有条件的循环控制语句。满足条件后，再执行循环体中的SQL语句。具体语法为：\n\n```sql\n# 先判定条件，如果条件为True，则执行逻辑，否则，不执行逻辑\nwhile 条件 do\n\tSQL逻辑...\nend while;\n```\n\n##### repeat\n\nrepeat是有条件的循环控制语句，当满足条件时退出循环。具体语法为：\n\n```sql\n# 先执行一次逻辑，然后判定逻辑是否满足，如果满足，则退出，如果不满足，则继续下一次循环\nrepeat\n\tSQL逻辑...\n\tuntil 条件\nend repeat;\n```\n\n##### loop\n\nloop实现简单的循环，如果不在SQL逻辑中增加退出循环的条件，可以用其来实现简单的死循环。loop可以配合一下两个语句使用：\n\n- `leave`配合循环使用，退出循环。\n- `iterate`必须用在循环中，作用是跳过当前循环剩下的语句，直接进入下一次循环。\n\n```sql\n[begin_label:] loop\n\tSQL逻辑...\nend loop [end_label];\n\n\nleave label;    -- 退出指定标记的循环体\niterate label;  -- 直接进入下一次循环\n```\n\n#### 游标cursor\n\n**游标（CURSOR）**是用来存储查询结果集的数据类型，在存储过程和函数中可以使用游标对结果集进行循环的处理。游标的使用包括游标的声明、OPEN、FETCH和 CLOSE，其语法分别如下。\n\n- 声明游标\n\n  ```sql\n  declare 游标名称 cursor for 查询语句;\n  ```\n\n- 打开游标\n\n  ```sql\n  open 游标名称;\n  ```\n\n- 获取游标记录\n\n  ```sql\n  fetch 游标名称 into 变量[,变量];\n  ```\n\n- 关闭游标\n\n  ```sql\n  close 游标名称;\n  ```\n\n#### 条件处理程序\n\n**条件处理程序（Handler）**可以用来定义在流程控制结构执行过程中遇到问题时相应的处理步骤。具体语法为：\n\n```sql\ndeclare handler_action handler for condition_value [, condition_value]... statement;\n\n\nhandler_action\n\tcontinue                        继续执行当前程序\n\texit                            终止执行当前程序\ncondition_value\n\tsqlstate sqlstate_value         状态码，如'02000'\n\tsqlwarning                      所有01开头的sqlstate代码的缩写\n\tnot found                       所有以02开头的sqlstate代码的缩写\n\tsqlexception                    所有没有被sqlwarning或not found捕获的sqlstate代码的缩写\n```\n\n[MySQL :: MySQL 8.0 Error Reference :: 2 Server Error Message Reference](https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html)\n\n### 存储函数\n\n存储函数是有返回值的存储过程，存储函数的参数只能是IN类型的。具体语法如下：\n\n```sql\ncreate function 存储函数名称([参数列表])\nreturns type [characteristic...]\nbegin\n\t-- SQL语句\n\treturn ...;\nend;\n\n\ncharacteristic说明：\n\tdeterministic        相同的输入参数总是产生相同的结果\n\tno sql               不包含SQL语句\n\treads sql data       包含读取数据的语句，但不包含写入数据的语句\n```\n\n### 触发器\n\n#### 介绍\n\n触发器是与表有关的数据库对象，指在insert/update/delete之前或之后，触发并执行触发器中定义的SQL语句集合。触发器的这种特性可以协助应用在数据库端确保数据的完整性，日志记录，数据校验等操作。\n使用别名OLD和NEW来引用触发器中发生变化的记录内容，这与其他的数据库是相似的。现在触发器还只支持行级触发，不支持语句级触发。\n\n| 触发器类型      | NEW 和 OLD                                             |\n| --------------- | ------------------------------------------------------ |\n| insert 型触发器 | NEW 表示将要或者已经新增的数据                         |\n| update 型触发器 | OLD 表示修改之前的数据，NEW 表示将要或已经修改后的数据 |\n| delete 型触发器 | OLD 表示将要或者已经删除的数据                         |\n\n#### 创建\n\n```sql\ncreate trigger trigger_name\n    before/after insert/update/delete\n    on tbl_name\n    for each row         -- 行级触发器\nbegin\n\ttrigger_stmt;\nend;\n```\n\n#### 查看\n\n```sql\nshow triggers;\n```\n\n#### 删除\n\n```sql\ndrop trigger [schema_name.]trigger_name;   -- 如果没有指定schema_name，默认为当前数据库。\n```\n\n## 锁\n\n- 介绍\n\n  锁是计算机协调多个进程或线程并发访问某一资源的机制。在数据库中，除传统的计算资源(CPU、RAM、I/0)的争用以外，数据也是一种供许多用户共享的资源。如何保证数据并发访问的一致性、有效性是所有数据库必须解决的一个问题，锁冲突也是影响数据库并发访问性能的一个重要因素。从这个角度来说，锁对数据库而言显得尤其重要，也更加复杂。\n\n- 分类\n\n  MySQL中的锁，按照锁的粒度分，分为一下三类：\n\n  1. 全局锁：锁定数据库中的所有表。\n  2. 表级锁：每次操作锁住整张表。\n  3. 行级锁：每次操作锁住对应的行数据。\n\n### 全局锁\n\n- 介绍\n\n  全局锁就是对整个数据库实例加锁，加锁后整个实例就处于只读状态，后续的DML的写语句，DDL语句，已经更新操作的事务提交语句都将被阻塞。\n\n  其典型的使用场景是做全库的逻辑备份，对所有的表进行锁定，从而获取一致性视图，保证数据的完整性。\n\n- 基本操作\n\n  加全局锁：\n\n  ```sql\n  flush tables with read lock;\n  ```\n\n  释放全局锁：\n\n  ```sql\n  unlock tables;\n  ```\n\n  备份：\n\n  ```sql\n  mysqldump -u root -p123456 itcast > itcast.sql\n  ```\n\n- 特点\n\n  数据库中加全局锁，是一个比较重的操作，存在以下问题:\n\n  1. 如果在主库上备份，那么在备份期间都不能执行更新，业务基本上就得停摆。\n  2. 如果在从库上备份，那么在备份期间从库不能执行主库同步过来的二进制日志(binlog)，会导致主从延迟。（该结构会在后续主从复制讲解）\n\n- 解决方法\n\n  在InnoDB引擎中，我们可以在备份时加上参数 –single-transaction 参数来完成不加锁的一致性数据备份。\n\n  ```sql\n  mysqldump --single-transaction -uroot -p123456 itcast > itcast.sql\n  ```\n\n\n### 表级锁\n\n#### 表锁\n\n- 介绍\n\n  每次操作锁住整张表。锁定粒度大，发生锁的冲突的概率最高，并发度最低。应用在MyISAM、InnoDB、BDB等存储引擎中。\n\n- 对于表级锁，主要分为以下三类：\n\n  1. 表锁\n  2. 元数据锁（meta data lock，MDL）\n  3. 意向锁\n\n- 表锁\n\n  对于表锁，分为两类：\n\n  1. 表共享读锁（read lock）\n  2. 表独占写锁（write lock）\n\n  **读锁不会阻塞其他客户端的读，但是会阻塞写。写锁既会阻塞其他客户端的读，又会阻塞其他客户端的写。**\n\n- 语法\n\n  ```sql\n  -- 加锁\n  lock tables 表名... read/write\n  \n  -- 释放锁\n  unlock tables/客户端断开连接\n  ```\n\n#### 元数据锁（meta data lock，MDL）\n\nMDL加锁过程是系统自动控制，无需显式使用，在访问一张表的时候会自动加上。MDL锁主要作用是维护表元数据的数据一致性，在表上有活动事务的时候，不可以对元数据进行写入操作。**为了避免DML与DDL冲突，保证读写的正确性。**\n\n\n\n在MySQL5.5中引入了MDL，当对一张表进行增删改查的时候，加MDL读锁（共享）；当对表结构进行变更操作的时候，加MDL写锁（排他）\n\n| 对应SQL                                     | 锁类型                                | 说明                                             |\n| ------------------------------------------- | ------------------------------------- | ------------------------------------------------ |\n| lock tables xxx read /write                 | SHARED_READ_ONLY/SHARED_NO_READ_WRITE |                                                  |\n| select 、 select … lock in share mode       | SHARED_READ                           | 与SHARED_READ、SHARED_WRITE兼容，与EXCLUSIVE互斥 |\n| insert 、update、delete、select …for update | SHARED_WRITE                          | 与SHARED_READ、SHARED_WRITE兼容，与EXCLUSIVE互斥 |\n| alter table …                               | EXCLYSIVE                             | 与其他的MDL都互斥                                |\n\n查看元数据锁：\n\n```sql\nselect object_type, object_schema, object_name, lock_type, lock_duration from performance_schema.metadata_locks;\n```\n\n#### 意向锁\n\n为了避免DML在执行时，加的行锁与表锁的冲突，在InnoDB中引入了意向锁，使得表锁不用检查每行数据是否加锁，使用意向锁来减少表锁的检查。\n\n1. 意向共享锁（IS）：由语句`select ... lock in share mode`添加\n2. 意向排他锁（IX）：由`insert`、`update`、`delete`、`select ... for update`添加\n\n兼容情况：\n\n1. 意向共享锁（IS）：与表锁共享锁（read）兼容，与表锁排他锁（write）互斥。\n2. 意向排他锁（IX）：与表锁共享锁（read）及排他锁（write）都互斥。意向锁之间不会互斥。\n\n查看意向锁及行锁的加锁情况：\n\n```sql\nselect object_shema, object_name, index_name, lock_type, lock_mode, lock_data from performance_schema.data_locks;\n```\n\n### 行级锁\n\n行级锁，每次操作锁住对应的行数据。锁定粒度最小，发生锁冲突的概率最低，并发度最高。应用在InnoDB存储引擎中。\n\nInnoDB的数据是基于索引组织的，行锁是通过对索引上的索引项加锁来实现的，而不是对记录加的锁。对于行级锁，主要分为以下三类：\n\n1. 行锁(Record Lock):锁定单个行记录的锁，防止其他事务对此行进行update和delete。在RC、RR隔离级别下都支持。\n2. 间隙锁(GapLock):锁定索引记录间隙(不含该记录)，确保索引记录间隙不变，防止其他事务在这个间隙进行insert，产生幻读。在RR隔离级别下都支持。\n3. 临键锁(Next-Key Lock):行锁和间隙锁组合，同时锁住数据，并锁住数据前面的间隙Gap。在RR隔离级别下支持。\n\n#### 行锁\n\nInnoDB实现了以下两种类型的行锁：\n\n1. 共享锁（S）：允许一个事务去读一行，阻止其他事务获得相同数据集的排它锁。\n2. 排他锁（X）：允许获取排他锁的事务更新数据，阻止其他事务获得相同数据集的共享锁和排他锁。\n\n<table border=\"1\" cellspacing=\"0\" cellpadding=\"10\" style=\"border-collapse: collapse; width: 100%;\">\n    <tr>\n        <!-- 核心代码：利用 linear-gradient 绘制对角线 -->\n        <th style=\"width: 200px; height: 60px; background: linear-gradient(to top right, transparent 49.5%, black 49.5%, black 50.5%, transparent 50.5%);\">\n            <!-- 上面的文字：靠右 -->\n            <div style=\"text-align: right; padding-bottom: 5px;\">请求锁类型</div>\n            <!-- 下面的文字：靠左 -->\n            <div style=\"text-align: left; padding-top: 5px;\">当前锁类型</div>\n        </th>\n        <th>S (共享锁)</th>\n        <th>X (排他锁)</th>\n    </tr>\n    <tr>\n        <td><b>S (共享锁)</b></td>\n        <td style=\"text-align: center;\">兼容</td>\n        <td style=\"text-align: center;\">冲突</td>\n    </tr>\n    <tr>\n        <td><b>X (排他锁)</b></td>\n        <td style=\"text-align: center;\">冲突</td>\n        <td style=\"text-align: center;\">冲突</td>\n    </tr>\n</table>\n\n| SQL                         | 行锁类型       | 说明                                     |\n| :-------------------------- | -------------- | ---------------------------------------- |\n| insert，update，delete …    | 排他锁         | 自动加锁                                 |\n| select                      | **不加任何锁** |                                          |\n| select … lock in share mode | 共享锁         | 需要手动select之后加上lock in share mode |\n| select … for update         | 排他锁         | 需要手动在select之后for update           |\n\n#### 行锁—演示\n\n默认情况下，InnoDB在 REPEATABLE READ事务隔离级别运行，InnoDB使用 next-key锁进行搜索和索引扫描，以防止幻读。\n\n1. 针对唯一索引进行检索时，对已存在的记录进行等值匹配时，将会自动优化为行锁。\n2. InnoDB的行锁是针对于索引加的锁，不通过索引条件检索数据，那么!nnoDB将对表中的所有记录加锁，此时 **就会升级为表锁**。",
+      "category": "notes",
+      "tags": [
+        "数据库",
+        "MySQL"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 15107,
+      "readingTime": 51,
+      "viewCount": 0,
+      "groupSlug": "database",
+      "groupTitle": "数据库",
+      "order": 1
+    },
+    {
+      "id": "git-learn",
+      "title": "git学习",
+      "slug": "git-learn",
+      "excerpt": "使用交互式git学习网站学习笔记",
+      "content": "LearnGitBranching 全方位详细学习笔记\n\n> **简介**：LearnGitBranching 是一个交互式的 Git 学习网站，通过可视化的“提交树”（Commit Graph）来展示 Git 命令对仓库状态的影响。\n>\n> **核心理念**：Git 的本质是一个有向无环图（DAG）。掌握 Git 就是掌握如何在这个图上创建节点（Commit）、移动指针（Branch/HEAD）以及复制节点。\n\n---\n\n## 第一部分：基础篇 (Main)\n\n### 1. Git Commit (提交)\nGit 仓库中的提交记录可以看作是项目的**快照**。\n*   **原理**：Git 存储的是变化（Delta），但在逻辑上每个提交包含了整个项目的文件状态。提交记录非常轻量，因为它们只需存储父节点引用和当前的差异。\n*   **命令**：\n    ```bash\n    git commit\n    ```\n*   **图解**：当前分支产生一个新的节点，箭头指向父节点。\n\n### 2. Git Branch (分支)\n分支在 Git 中极其轻量，它本质上仅仅是指向某个特定提交记录的**指针**（引用）。\n*   **原理**：创建分支就是新建一个指针；切换分支就是移动 `HEAD` 指向不同的指针。\n*   **命令**：\n    ```bash\n    git branch <分支名>    # 创建新分支\n    git checkout <分支名>  # 切换到该分支\n    # 快捷命令（创建并切换）：\n    git checkout -b <分支名>\n    ```\n\n### 3. Git Merge (合并)\n合并是两个分支历史的结合。\n*   **原理**：`merge` 会创建一个特殊的“合并提交”（Merge Commit），该提交有两个父节点。\n*   **场景**：保留完整的历史记录，非破坏性操作。\n*   **命令**：\n    ```bash\n    git merge <目标分支>\n    # 示例：将 bugFix 合并到 main\n    git checkout main\n    git merge bugFix\n    ```\n\n### 4. Git Rebase (变基)\n变基是另一种合并方式，它通过“复制”提交记录并在另一个分支上“重放”来线性化历史。\n*  **原理**：取出一系列的提交记录，“复制”它们，然后在另外一个地方逐个放下去。\n\n* **优点**：创造更清晰、线性的提交历史（没有繁杂的合并分叉）。\n\n* **缺点**：会修改历史（改变 Commit Hash），**严禁**在公共/共享分支上对已推送的提交进行 Rebase。\n\n* **命令**：\n    ```bash\n    git rebase <基底分支>\n    # 示例：把 bugFix 移到 main 后面\n    git checkout bugFix\n    git rebase main\n    ```\n    *此时 `bugFix` 的历史看起来就像是紧接着 `main` 之后开发的。*\n\n<table>\n  <tr>\n    <td>git checkout bugFix</td>\n    <td>git rebase main</td>\n    <td>git checkout main<br>git rebase bugFix\n     </td>\n  </tr>\n  <tr>\n    <td><img src=\"/content-assets/git-learn/001.png\" height=\"300\" /></td>\n    <td><img src=\"/content-assets/git-learn/002.png\" height=\"300\" /></td>\n    <td><img src=\"/content-assets/git-learn/003.png\" height=\"300\" /></td>\n  </tr>\n</table>\n\n\n\n---\n\n## 第二部分：高级操作与移动 (Ramping Up)\n\n### 1. HEAD 与分离 HEAD (Detached HEAD)\n*   **定义**：`HEAD` 是一个特殊的指针，它总是指向当前所在的本地分支（译注：通常指向分支名）。\n*   **分离 HEAD**：当 `HEAD` 直接指向某个 **Commit Hash** 而不是分支名时，称为“分离 HEAD”状态。\n*   **操作**：\n    ```bash\n    git checkout <commit_hash>\n    ```\n\n### 2. 相对引用 (Relative Refs)\n通过哈希值指定提交记录太繁琐，Git 提供了相对引用。\n*   **^ (Carat)**：向上一层（父节点）。\n    *   `main^`：main 的父节点。\n    *   `HEAD^`：当前节点的父节点。\n*   **~ (Tilde)**：向上多层。\n    *   `HEAD~3`：当前节点向上数第 3 个节点。\n*   **链式调用**：\n    ```bash\n    git checkout HEAD~1^2  # 移动到父节点的第二个父节点\n    ```\n\n### 3. 强制修改分支位置\n直接将某个分支引用拖动到特定的提交记录上。\n*   **命令**：\n    ```bash\n    # 将 main 分支强制指向 HEAD 的第 3 级父节点\n    git branch -f main HEAD~3\n    ```\n*   **应用**：快速修正错误的分支指向，或重置环境。\n\n### 4. 分支记录回退\n把分支记录回退几个提交记录来实现撤销修改\n*   **命令**：\n    \n    ```bash\n    git reset HEAD~1  # 把分支记录回退到HEAD的上一级（对远程分支无效）\n    git revert HEAD\n    ```\n\n<table>\n  <tr>\n    <td></td>\n    <td>git reset HEAD~1</td>\n    <td>git revert HEAD(对于第一张图)</td>\n  </tr>\n  <tr>\n    <td><img src=\"/content-assets/git-learn/004.png\" height=\"300\" /></td>\n    <td><img src=\"/content-assets/git-learn/005.png\" height=\"300\" /></td>\n    <td><img src=\"/content-assets/git-learn/006.png\" height=\"300\" /></td>\n  </tr>\n  <tr>\n    <td></td>\n    <td></td>\n    <td>新提交记录 C2' 引入了更改 —— 这些更改刚好是用来撤销 C2 这个提交的。也就是说 C2' 的状态与 C1 是相同的。</td>\n  </tr>\n</table>\n\n\n\n---\n\n## 第三部分：整理提交记录 (Moving Work Around)\n\n### 1. Git Cherry-pick (优选)\n这是最直接的“复制提交”方式。如果你知道你需要哪个具体的提交，可以直接把它抓过来。\n*   **命令**：\n    ```bash\n    # 将 c2 和 c4 两个提交复制到当前 HEAD 下面\n    git cherry-pick c2 c4\n    ```\n\n### 2. 交互式 Rebase (Interactive Rebase)\n当你不知道 Commit Hash，或者想要重新排序、删除、合并提交时使用。\n*   **命令**：\n    ```bash\n    git rebase -i HEAD~4\n    ```\n*   **UI 操作**：Git 会打开一个编辑器（Vim 等），列出最近 4 个提交。\n    *   `pick`：保留。\n    *   `drop`：删除。\n    *   `reorder`：调整行顺序来改变提交顺序。\n    *   `squash`：将此提交合并到上一个提交中。\n\n---\n\n## 第四部分：杂项技巧 (A Mixed Bag)\n\n### 1. 本地栈式提交 (Stacking)\n场景：你在开发 `feature`，但发现需要先修改 `main` 上的一个 bug。\n*   **流程**：\n    1.  `git checkout main`\n    2.  `git cherry-pick <bugFix_commit>` (只抓取修复的那次提交)\n    3.  或者使用 `rebase -i` 将 bugFix 调整到最前，然后更新 main。\n\n### 2. Git Tag (标签)\n分支会随新的提交移动，但 Tag 是永久的**锚点**，通常用于发布版本（v1.0, v2.0）。\n*   **命令**：\n    ```bash\n    git tag v1 c1  # 在提交 c1 上打标签 v1\n    git checkout v1 # 此时进入分离 HEAD 状态\n    ```\n\n### 3. Git Describe (描述)\n用于查询当前位置距离最近的标签有多远。常用于构建系统生成版本号。\n*   **语法**：`git describe <ref>`\n*   **输出格式**：`<tag>_<numCommits>_g<hash>`\n    *   `tag`：离得最近的标签。\n    *   `numCommits`：相差多少个提交。\n    *   `hash`：当前提交哈希的前几位。\n\n---\n\n## 第五部分：高级话题 (Advanced Topics)\n\n### 1. 多次 Rebase\n场景：你有多个分支 `side1`, `side2`, `side3`，都需要合并到 `main`，并希望保持线性历史。\n*   **操作**：连续执行 Rebase。\n    ```bash\n    git rebase main side1 # 把后者部分移动到前者下方，移动部分为两者共同的最近的祖先（不含）到后者（含）的所有节点\n    git rebase side1 side2\n    git rebase side2 side3\n    git checkout main\n    git merge side3  # 此时是 Fast-forward\n    ```\n\n### 2. 选择父节点 (Select Parent)\n针对合并提交（Merge Commit），它有两个父节点。\n*   `^1`：代表“第一个父节点”（通常是你 Merge **时**所在的分支）。\n*   `^2`：代表“第二个父节点”（通常是你 Merge **进来**的那个分支）。\n*   **命令**：\n    ```bash\n    git checkout HEAD^   # 默认回到 ^1\n    git checkout HEAD^2  # 回到 ^2\n    ```\n*   **支持链式**：`git checkout HEAD~^2~2`\n\n---\n\n## 第六部分：远程仓库基础 (Remote Basics)\n\n### 1. Git Clone & Remote Branch\n*   **Git Clone**：在本地创建一个远程仓库的完整副本。\n*   **远程分支**：形如 `origin/main`。\n    *   它们反映了远程仓库的状态。\n    *   **特点**：你无法直接 checkout 到 `origin/main` 并进行 commit（会进入分离 HEAD）。你只能更新它们（通过 fetch），然后将本地分支 merge/rebase 进去。\n\n### 2. Git Fetch (获取)\n`git fetch` 是与远程仓库通信的核心命令。\n*   **作用**：\n    1.  下载本地没有的远程提交记录。\n    2.  更新本地的远程分支指针（如 `origin/main`）。\n*   **注意**：`fetch` **不会** 修改你的本地工作区（不会改变你的 `main` 分支），它只是把数据下载下来。\n\n### 3. Git Pull (拉取)\n由于 `git fetch` 后通常紧接着就是合并，Git 提供了快捷方式。\n*   **公式**：\n    ```\n    git pull = git fetch + git merge\n    ```\n*   **变体**：\n    ```\n    git pull --rebase = git fetch + git rebase\n    ```\n\n### 4. Git Push (推送)\n将本地的变更上传到远程仓库，并更新远程仓库的引用。\n*   **命令**：\n    ```bash\n    git push\n    ```\n*   **限制**：如果远程仓库的历史比你新（其他人推过了），Git 会拒绝推送，强制你先拉取（Pull）合并。\n\n---\n\n## 第七部分：远程高级操作 (Advanced Remote)\n\n### 1. 处理偏离的历史 (Diverged History)\n场景：你写了代码，准备 push，但同事已经 push 了新代码到远程 `main`。\n*   **直接 Push 会失败**。\n*   **解决方法 1 (Merge)**：\n    ```bash\n    git fetch\n    git merge origin/main\n    git push\n    # 简写：git pull; git push\n    ```\n*   **解决方法 2 (Rebase - 推荐)**：\n    ```bash\n    git fetch\n    git rebase origin/main\n    git push\n    # 简写：git pull --rebase; git push\n    ```\n    *优点：保持远程分支历史整洁线性。*\n\n### 2. 锁定的 Main (Locked Main) / 受保护分支\n场景：有些分支（如 main）被配置为“Protected”，禁止直接 Push，必须通过 Pull Request (PR) 合并。\n*   如果我不小心在 main 上直接提交了代码，怎么办？\n*   **流程**：\n    1.  新建分支：`git checkout -b feature`\n    2.  推送到远程：`git push origin feature`\n    3.  重置本地 main 与远程同步：`git checkout main; git reset --hard origin/main`\n\n---\n\n## 第八部分：深入理解 Push/Pull 参数 (Refspecs)\n\n这是 Git 中最晦涩但最强大的部分。\n\n### 1. Git Push 参数\n语法：`git push <remote> <place>`\n*   **基本用法**：\n    ```bash\n    git push origin main\n    ```\n    意思是：切到本地 `main`，把它推送到远程 `origin` 的 `main`。\n\n*   **<source>:<destination> 语法**：\n    如果你想把本地的 `foo` 分支推送到远程的 `bar` 分支：\n    ```bash\n    git push origin foo:bar\n    ```\n\n*   **删除远程分支**：\n    如果 `<source>` 为空，相当于“推送空”到远程，即删除。\n    ```bash\n    git push origin :foo\n    # 删除远程的 foo 分支\n    ```\n\n### 2. Git Fetch 参数\n语法与 Push 极其相似，只是方向相反。\n*   **基本用法**：\n    ```bash\n    git fetch origin foo\n    ```\n    意思是：下载远程 `foo` 分支，并更新本地的 `origin/foo`（注意：不会直接更新本地 `foo`）。\n\n*   **<source>:<destination> 语法**：\n    ```bash\n    git fetch origin foo:bar\n    ```\n    意思是：找到远程的 `foo`，下载下来，并在本地创建一个名为 `bar` 的分支（如果已存在则更新它）。\n    *这允许你直接通过 fetch 在本地创建新分支。*\n\n*   **在 Fetch 中创建空分支**：\n    ```bash\n    git fetch origin :bar\n    ```\n    *这会在本地创建一个新分支 `bar`。*\n\n### 3. 这里的 source 和 destination\n*   **Push**: source 是本地，destination 是远程。\n*   **Fetch**: source 是远程，destination 是本地。\n\n---\n\n## 最佳实践总结 (节外生枝)\n\n1.  **保持历史线性**：尽量使用 `git pull --rebase` 而不是 `git pull`，这样可以避免无意义的 Merge Commit。\n2.  **原子提交**：每个 Commit 只做一件事。这使得 `cherry-pick` 和 `rebase` 更容易。\n3.  **不要 Rebase 公共分支**：一旦代码 push 到了多人共享的分支，就不要在本地 rebase 它，否则会造成其他人的历史混乱。\n4.  **善用暂存区 (Stash)**：虽然本教程未详细涉及，但 `git stash` 可以在切换分支时保存当前未提交的进度。\n5.  **Reflog 是后悔药**：如果把分支搞丢了，`git reflog` 记录了 HEAD 的每一次移动，可以找回丢失的 commit。",
+      "category": "notes",
+      "tags": [
+        "git"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 2561,
+      "readingTime": 9,
+      "viewCount": 0,
+      "groupSlug": "git",
+      "groupTitle": "git",
+      "order": 1
+    },
+    {
+      "id": "latex-learn",
+      "title": "latex学习",
+      "slug": "latex-learn",
+      "excerpt": "记录latex一些简单的使用",
+      "content": "## 特殊符号\n\nLatex中的特殊符号（因为有特殊含义，所以不能直接当成文本打出来，**需要\\转译**）\n\n- `%`，在LaTeX中，百分号是作为注释符号\n\n- `&`，在LaTeX用于表格或数学公式中的位置对齐符号\n- `$`，这个符号被用作数学公式标记符：被框在两个该符号中间的内容将会翻译为数学公式\n\n- `~`，保留强制空格，非常古老的用法\n- `^`和`_`，上三角和下划线用作上下标标记\n- `{`和`}`，左右花括号表示将其中的内容作为一个整体对待\n- `#`，编写宏包时使用\n\n## 正文\n\n### 设定区域和正文区域\n\n- 设定区域\n  - `\\documentclass{...}`、`\\usepackage{...}`为设定区域，规定论文格式，导入相关依赖包等\n  - 一般不会对生产的PDF产生影响\n  - 设定区域会随着我们不断添加新的元素而丰富\n\n- 正文区域\n  - `\\begin...\\end`命令中间的这个区域\n  - 所有在最终PDF文件的可见内容均在此区域添加，包括文字，图表，公式\n  - 在正文区域，我们需要先输入一篇论文的基本内容，设定论文题目，摘要，关键字等\n\n### 正文各级标题\n\n- `chapter`，章，一般只用于可以成书的文章\n- `section`，节\n- `subsection`，小节\n- `subsubsection`，小小节\n\n### 换行、换段、换页、首行缩进命令\n\n- `\\\\`（`\\newline`、`\\linebreak`、`\\\\[offset]`）换行，（建议前俩）\n- `\\par`分段，（我试了一下，中间留个空行也行，建议段落和整行公式之间也留空行）\n- `\\newpage`分页命令\n- `\\setlength{\\parindent}{长度}`首行缩进，（试了，原始大概1.5em）\n\n### 正文行中特殊字符和短公式\n\n- 使用两个`$`符号：`$公式$`\n\n### 单行公式带编号\n\n- ```latex\n  \\begin{equation} \\label{公式标签}\n  ......\n  \\end{equation}\n  \n  % 效果如下\n  %                              α + β = γ                                    (1)\n  ```\n\n- 自动引用`\\autoref{公式标签}`（需要导入依赖包`\\usepackage{hyperref}`）\n\n  效果：在对应位置有个 `Equation 1`以此类推，点击可跳转到公式位置\n\n- 另一个引用`\\eqref{公式标签}`（需要导入依赖包`\\usepackage{amsmath}`）\n\n  效果：在对应位置有个 `(1)`以此类推，点击可跳转到公式位置\n\n> 引用这一块经测试，需要**先清理辅助文件**，**再用LaTeXmk点两次编译**，方可正常显示引用\n\n### 无编号公式\n\n- ```latex\n  \\[公式\\]\n  或\n  $$公式$$\n  ```\n\n### 多行公式\n\n- 使用`\\begin{split}...\\end{split}`，需要导入依赖包`\\usepackage{amsmath}`\n\n  注意：这里需要搭配上面的`\\begin{equation} \\label{公式标签}...\\end{equation}`，`\\[公式\\]`或`$$公式$$`\n\n### 分情况讨论\n\n- 属于多行公式的一种，使用`\\begin{cases}...\\end{cases}`，需要导入依赖包`\\usepackage{amsmath}`\n- 如果公式比较紧就把`cases`换成`dcases`，导入依赖包`\\usepackage{mathtools}`\n\n> - 可用`&`进行对齐\n> - 需要正文样式输出的地方用`\\test{}`\n\n关于公式的实例：\n\n```latex\n\\begin{equation} \\label{eq:long}\n    f(x) =\n    \\begin{dcases}\n        0, &x<0 \\\\       % 这里有个&\n        \\int_{-\\infty}^\\infty  \\hat f(x)\\xi\\,e^{2 \\pi i \\xi x}  \\,\\mathrm{d}\\xi , &otherside               % 这里也有&，对齐作用，否则x<0会紧挨着0,\n    \\end{dcases}\n\\end{equation}\n```\n\n$$\nf(x) =\n    \\begin{dcases}\n        0, &x<0 \\\\\n        \\int_{-\\infty}^\\infty  \\hat f(x)\\xi\\,e^{2 \\pi i \\xi x}  \\,\\mathrm{d}\\xi , &otherside\n    \\end{dcases}\n$$\n\n### 插入图片\n\n- 依赖包`graphicx`（有的环境可能自带）\n\n- 常用模版\n\n  ```latex\n  \\begin{figure}[htbp]\n  \t\\centering\n  \t\\includegraphics[图片大小][图片路径]\n  \t\\caption{图片标题、说明}\n  \t\\label{图片标签}\n  \\end{figure}\n  ```\n\n- [图片大小]\n\n  图片大小使用height和width规定，单位可以采用cm或in（inch），如果只规定高或宽其中一个，图片将保持高宽比插入，所以一般只需要规定图片宽度。\n\n- [图片路径]\n\n  图片相对于`.tex`文件的路径\n\n- 双栏显示\n\n  图片如果要跨栏显示，把`\\begin{figure}...\\end{figure}`替换为`\\begin{figure*}...\\end{figure*}`即可\n\n- `htbp`是LaTeX中用于控制浮动体位置的一个选项集。浮动体（如图片或表格）通常不会被直接放置在代码所在的位置，而是由LaTeX根据排版需要放置在页面的其他位置。`htbp`用于指定浮动体的偏好位置。这些选项的含义如下：\n  - h（here）：尽量将浮动体放置在代码所在的位置。然而，如果页面的顶部或底部能够更好地容纳浮\n    动体，LaTeX可能会选择这样做。\n  - t（top）：将浮动体放置在页面的顶部。\n  - b（bottom）：将浮动体放置在页面的底部。\n  - p（page）：将浮动体放置在一个单独的页面上。\n  - 前面加个`!`表示强制排版，忽略美观\n  - 这些选项可以组合使用，例如`ht`表示首选放置在页面顶部，但如果不行就放置在代码所在的位置。\n    默认情况下，如果你不提供任何选项，LaTeX会使用`tbp`作为默认值。\n  - 例如，`\\begin{figure})[htbp]`表示在尽量放在当前位置，如果不行就放在页面顶部，底部，或者单独\n    一页。\n\n### 表格\n\n示例：\n\n```latex\n\\begin{table}[!htbp]\n    \\begin{center}                  % 让表格在页面居中显示\n        \\caption{Notations}         % 给表格加标题并自动生成类似\"Table 1:标题名\"的序号\n        \\begin{tabular}{cl}         % 第一列c即默认居中对齐，第二列l即默认居左对齐\n            \\toprule                % 粗顶线\n            \\multicolumn{1}{m{3cm}}{\\centering Symbol}\n                     & \\multicolumn{1}{m{8cm}}{\\centering Definition} \\\\\n                                    % multicolumn{1}是指这格只占一列，即没有合并列；3cm指这一\n                                    % 格宽3cm；\\centering指居中显示（题目一般居中）\n            \\midrule                % 细分界线\n            $A$      & the first one                                  \\\\ % 每一行的不同\n            $b$      & the second one                                 \\\\ % 项之间用&间\n            $\\alpha$ & the last one                                   \\\\ % 隔，用来对齐\n            \\bottomrule             % 粗底线\n        \\end{tabular}\\label{tb:notation}  % 设置标签，在文中引用同公式\n    \\end{center}\n\\end{table}\n```\n\n- 每列属性其他：r,l,c,t,b<->右左中上下\n\n制表网站（不怎么好用）：\n\nwww.latex-tables.com\n\n[Create LaTeX tables online – TablesGenerator.com](https://tablesgenerator.com/)\n\n### 参考文献\n\n推荐使用bib格式，在下列网站直接点引用就能有复制bib格式的选项。\n\n[Google 学术搜索](https://scholar.google.com/)\n\n[百度学术](https://xueshu.baidu.com/)\n\nbib文件实例：\n\n```bib\n@article{聂凯2025基于,\n  title={基于YOLOv8-RFL模型的电力绝缘子缺陷检测方法},\n  author={聂凯 and 李泽 and 高文豪 and 李诚真 and 刘永鹏 and 李清泉},\n  journal={电网技术},\n  number={9},\n  year={2025},\n}\n\n% 当然可以罗列多个，不再赘述\n```\n\n把bib格式的文本复制到新建的`.bib`文件中，在要列出参考文献的地方写出：\n\n```latex\n\\bibliographystyle{unsrt}              % 其中unsrt是按引用顺序排序\n\\bibliography{bib文件的文件名}           % 此处不用写后缀.bib\n```\n\n引用时，直接在要引用的地方写`\\cite{bib文件第一个字段名}`，对应上面就是`聂凯2025基于`\n\n如果想把`[1]`标放在右上角，则需在设定区域（也就是`\\begin{document}`之前）添加`\\newcommand{\\upcite}[1]{\\textsuperscript{\\cite{#1}}}`，然后在文中的引用从`\\cite{}`改为`\\upcite{}`\n\n> 这里的编译方式也是`LaTeXmk`\n\n## 摘要、目录、附录\n\n### 摘要\n\n在`\\begin{abstract}...\\end{abstract}`内，\n\n若要关键字，加上：\n\n```latex\n\\vspace{5pt}\n\\textbf{Keywords}: MATLAB, mathematics, LaTeX.\n```\n\n### 目录\n\n```latex\n\\maketitle  % 生成 Summary Sheet\n\\tableofcontents  % 生成目录\n```\n\n### 附录\n\n用`\\begin{subappendices}...\\end{subappendices}`框起来\n\n代码引用示例：\n\n```latex\n\\begin{lstlisting}[language=Python, name={test.py}]\n# Python code example\nfor i in range(10):\n    print('Hello, world!')\n\\end{lstlisting}\n```\n\n## 快捷键\n\n预览pdf文档时，左键双击转到代码\n\n查看代码时，Ctrl+Alt+J转到预览\n\n## 中文问题\n\n代码首行加上`%!TEX program = xelatex`，在导包区加上`\\usepackage{ctex}`，仍用`LaTeXmk`编译即可。\n\n此时会衍生一个问题，在写英文版时“摘要”“目录”等关键字会由于模版原因仍然呈现中文，所以记得删除以上两条指令；或者，一劳永逸地，导包区加的那个改成`\\usepackage[scheme=plain]{ctex}`就行，可兼容中英文。",
+      "category": "notes",
+      "tags": [
+        "latex",
+        "数学建模竞赛"
+      ],
+      "createdAt": "2026-06-29",
+      "updatedAt": "2026-06-29",
+      "isPublished": true,
+      "isTop": false,
+      "wordCount": 1900,
+      "readingTime": 7,
+      "viewCount": 0,
+      "groupSlug": "latex",
+      "groupTitle": "latex",
+      "order": 1
+    }
+  ],
+  "challengeGroups": [],
+  "challenges": [],
+  "favorites": []
+}
