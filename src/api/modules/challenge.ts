@@ -1,8 +1,9 @@
-import { apiRequest } from '@/api/client'
+import { apiRequest, shouldUseStaticContent } from '@/api/client'
 import { staticContentApi } from '@/api/staticContent'
 import type { Challenge, ChallengeGroup } from '@/types'
 
 async function withStaticFallback<T>(request: () => Promise<T>, fallback: () => Promise<T>) {
+  if (shouldUseStaticContent) return fallback()
   return request().catch(fallback)
 }
 

@@ -1,4 +1,4 @@
-import { apiRequest } from '@/api/client'
+import { apiRequest, shouldUseStaticContent } from '@/api/client'
 import { staticContentApi } from '@/api/staticContent'
 import type { FavoriteSite } from '@/types'
 
@@ -23,6 +23,8 @@ function enrich(site: FavoriteSiteInput): FavoriteSite {
 
 export const favoriteApi = {
   async list() {
-    return (await apiRequest<FavoriteSiteInput[]>('/api/favorites').catch(() => staticContentApi.listFavorites())).map(enrich)
+    return (await (shouldUseStaticContent
+      ? staticContentApi.listFavorites()
+      : apiRequest<FavoriteSiteInput[]>('/api/favorites').catch(() => staticContentApi.listFavorites()))).map(enrich)
   },
 }

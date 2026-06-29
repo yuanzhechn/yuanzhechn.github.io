@@ -1,6 +1,9 @@
 const defaultApiBaseUrl =
   typeof window === 'undefined' ? 'http://127.0.0.1:3000' : window.location.origin
 export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl).replace(/\/$/, '')
+export const shouldUseStaticContent =
+  typeof window !== 'undefined' &&
+  (window.location.hostname.endsWith('github.io') || import.meta.env.VITE_STATIC_CONTENT === 'true')
 
 export class ApiError extends Error {
   constructor(
@@ -27,7 +30,9 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   } catch {
     throw new ApiError('无法连接后端服务，请确认 blog-server 已启动', 0)
   }
-  const data = (await response.json().catch(() => ({}))) as T & { message?: string }
+  const data = (await response.json().catch(() => {
+    throw new ApiError('接口没有返回 JSON 数据', response.status)
+  })) as T & { message?: string }
 
   if (!response.ok) {
     throw new ApiError(data.message || `请求失败 (${response.status})`, response.status)
